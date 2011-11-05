@@ -27,6 +27,9 @@ Draft expires 11/20/2011.
 
 The draft recommends using Basic Authentication for client
 credentials, but we only support sending client_secret in query.
+
+TODO:
+ - what about when have refresh-token but no client-secret ?
 |#
 
 ;; ============================================================
@@ -56,7 +59,7 @@ credentials, but we only support sending client_secret in query.
     get-client-id     ;; -> string
     get-scopes        ;; -> (listof string)
     get-access-token  ;; [boolean] -> string/#f
-    refresh-token!    ;; -> void
+    get-refresh-token ;; -> string/#f
     headers           ;; -> (listof string)
     ))
 
@@ -166,6 +169,9 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
              (re-acquire-token! #:who who)
              access-token]
             [else #f]))
+
+    (define/public (get-refresh-token)
+      refresh-token)
 
     (define/public (re-acquire-token! #:who [who 'oauth2:re-acquire-token!])
       (cond [refresh-token

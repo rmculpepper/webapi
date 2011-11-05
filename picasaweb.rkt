@@ -11,6 +11,11 @@
 (provide (all-defined-out))
 
 #|
+Reference:
+http://code.google.com/apis/picasaweb/docs/2.0/developers_guide_protocol.html
+|#
+
+#|
 TODO
  - cache pages
  - support update album/image metadata
