@@ -9,10 +9,12 @@
          planet/version
          planet/scribble
          (for-label racket/base
+                    racket/class
                     racket/contract))
 (provide (all-defined-out)
          (all-from-out planet/scribble)
          (for-label (all-from-out racket/base)
+                    (all-from-out racket/class)
                     (all-from-out racket/contract)))
 
 (define (my-package-version)

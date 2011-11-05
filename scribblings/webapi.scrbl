@@ -26,4 +26,5 @@ General Public License and GNU Lesser General Public License for more
 details.
 
 @include-section["oauth2.scrbl"]
-@include-section["picasaweb.scrbl"]
+@include-section["picasa.scrbl"]
+@include-section["blogger.scrbl"]

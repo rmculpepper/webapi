@@ -22,11 +22,11 @@ TODO
  - tags?
 |#
 
-(define picasaweb-scope "https://picasaweb.google.com/data/")
+(define picasa-scope "https://picasaweb.google.com/data/")
 
 ;; ============================================================
 
-(define picasaweb<%>
+(define picasa<%>
   (interface ()
     list-albums     ;; -> (listof album<%>)
     find-album      ;; string [default] -> album<%>
@@ -38,15 +38,15 @@ TODO
     delete-album    ;; string -> void
     ))
 
-(define picasaweb-album<%>
+(define picasa-album<%>
   (interface ()
     valid?        ;; -> boolean
     page          ;; -> sxml
     delete        ;; -> void
-    create-photo  ;; path-string string -> picasaweb-photo<%>
+    create-photo  ;; path-string string -> photo<%>
     ))
 
-(define picasaweb-photo<%>
+(define picasa-photo<%>
   (interface ()
     valid?  ;; -> boolean
     page    ;; -> sxml
@@ -55,8 +55,8 @@ TODO
 
 ;; ============================================================
 
-(define picasaweb%
-  (class* object% (picasaweb<%>)
+(define picasa%
+  (class* object% (picasa<%>)
     (init-field oauth2
                 user-id)
     (super-new)
@@ -66,17 +66,17 @@ TODO
     (field [album-cache
             (new child-cache%
                  (make-child (lambda (album-id aux)
-                               (new picasaweb-album% (parent this) (album-id album-id)))))])
+                               (new picasa-album% (parent this) (album-id album-id)))))])
 
     ;; ==== List albums ====
 
-    (define/public (list-albums #:who [who 'picasaweb:list-albums])
+    (define/public (list-albums #:who [who 'picasa:list-albums])
       (let* ([doc (page #:who who)]
              [album-ids ((lift-sxpath "//gphoto:id/text()" (xpath-nss 'gphoto)) doc)])
         (for/list ([album-id (in-list album-ids)]) (send album-cache intern album-id #f))))
 
     (define/public (find-album album-name [default not-given]
-                               #:who [who 'picasaweb:find-album])
+                               #:who [who 'picasa:find-album])
       (let ([entry (get-album-entry who album-name default)])
         (send album-cache intern (extract-album-id entry) #f)))
 
@@ -99,7 +99,7 @@ TODO
 
     ;; ==== User page ====
 
-    (define/public (page #:who [who 'picasaweb:page])
+    (define/public (page #:who [who 'picasa:page])
       (get/url (url-for-user-page user-id)
                #:headers (headers)
                #:handle read-sxml
@@ -111,8 +111,8 @@ TODO
     ;; ==== Album page ====
 
     (define/public (album-page album-name)
-      (let ([a (find-album album-name #:who 'picasaweb:album-page)])
-        (send a page #:who 'picasaweb:album-page)))
+      (let ([a (find-album album-name #:who 'picasa:album-page)])
+        (send a page #:who 'picasa:album-page)))
 
     ;; ==== Create album ====
 
@@ -131,7 +131,7 @@ TODO
 
     (define/public (create-album title
                                  #:access [access "public"]
-                                 #:who [who 'picasaweb:create-album])
+                                 #:who [who 'picasa:create-album])
       (post/url (url-for-create-album user-id)
                 #:headers (headers 'atom)
                 #:data (srl:sxml->xml (create-album/doc title #:access access))
@@ -159,7 +159,7 @@ TODO
 
     ;; ==== Delete album ====
 
-    (define/public (delete-album album-name #:who [who 'picasaweb:delete-album])
+    (define/public (delete-album album-name #:who [who 'picasa:delete-album])
       (let ([a (find-album album-name #:who who)])
         (send a delete #:who who)))
 
@@ -174,30 +174,31 @@ TODO
 
     ))
 
+(define (picasa #:user-id user-id
+                #:oauth2 oauth2)
+  (new picasa% (user-id user-id) (oauth2 oauth2)))
+
 ;; ============================================================
 
-(define picasaweb-album%
-  (class* object% (picasaweb-album<%> child<%>)
+(define picasa-album%
+  (class* child% (picasa-album<%>)
     (init-field parent album-id)
+    (inherit check-valid)
     (super-new)
 
     (field [photo-cache
             (new child-cache%
                  (make-child
                   (lambda (photo-id aux)
-                    (new picasaweb-photo%
+                    (new picasa-photo%
                          (user parent) (album this) (photo-id photo-id)))))])
 
-    (define is-valid? #t)
-    (define/public (valid?) is-valid?)
-    (define/public (invalidate!)
-      (set! is-valid? #f)
+    (define/override (invalidate!)
+      (super invalidate!)
       (send photo-cache reset! null))
-    (define/private (check-valid who)
-      (unless is-valid? (error who "album is no longer valid")))
-    (define/public (update! aux) (void))
 
-    (define/public (list-photos #:who [who 'picasaweb-album:list-photos])
+    (define/public (list-photos #:who [who 'picasa-album:list-photos])
+      (check-valid who)
       (let* ([doc (page #:who who)]
              [photo-ids ((lift-sxpath "//atom:entry//gphoto:id/text()"
                                       (xpath-nss 'atom 'gphoto))
@@ -205,24 +206,24 @@ TODO
         (for/list ([photo-id (in-list photo-ids)])
           (send photo-cache intern photo-id #f))))
 
-    (define/public (page #:who [who 'picasaweb-album:page])
+    (define/public (page #:who [who 'picasa-album:page])
       (check-valid who)
       (get/url (url-for-album)
                #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
 
-    (define/public (delete #:who [who 'picasaweb-album:delete])
-      (check-valid 'picasaweb-album:delete)
+    (define/public (delete #:who [who 'picasa-album:delete])
+      (check-valid who)
       (delete/url (url-for-delete-album)
                   #:headers (cons "If-Match: *" (send parent headers))
                   #:handle void
-                  #:who who
-                  #:fail "album deletion failed")
-      (send (get-field album-cache parent) eject album-id))
+                  #:who who)
+      (send (get-field album-cache parent) eject! album-id))
 
-    (define/public (create-photo image-path name)
-      (check-valid 'picasaweb-album:create-photo)
+    (define/public (create-photo image-path name
+                                 #:who [who 'picasa-album:create-photo])
+      (check-valid who)
       (post/url (url-for-create-photo)
                 #:headers (let ([type (image-path->content-type image-path)])
                             (list* (format "Content-Type: ~a" type)
@@ -233,7 +234,7 @@ TODO
                            (send photo-cache intern
                                  (extract-photo-id (read-sxml in))
                                  #f))
-                #:who 'picasaweb:create-photo))
+                #:who who))
 
     (define/private (url-for-create-photo)
       (format "https://picasaweb.google.com/data/feed/api/user/~a/albumid/~a"
@@ -256,26 +257,19 @@ TODO
     (define/private (url-for-delete-album)
       (format "https://picasaweb.google.com/data/entry/api/user/~a/albumid/~a"
               (get-field user-id parent) album-id))
-
     ))
 
 ;; ============================================================
 
-(define picasaweb-photo%
-  (class* object% (picasaweb-photo<%> child<%>)
+(define picasa-photo%
+  (class* child% (picasa-photo<%>)
     (init-field user
                 album
                 photo-id)
+    (inherit check-valid)
     (super-new)
 
-    (define is-valid? #t)
-    (define/public (valid?) is-valid?)
-    (define/public (invalidate!) (set! is-valid? #f))
-    (define/private (check-valid who)
-      (unless is-valid? (error who "photo is no longer valid")))
-    (define/public (update! aux) (void))
-
-    (define/public (page #:who [who 'picasaweb-photo:page])
+    (define/public (page #:who [who 'picasa-photo:page])
       (check-valid who)
       ;; value of atom:icon ?
       (get/url (url-for-photo)
@@ -283,7 +277,7 @@ TODO
                #:handle read-sxml
                #:who who))
 
-    (define/public (delete #:who [who 'picasaweb-photo:delete])
+    (define/public (delete #:who [who 'picasa-photo:delete])
       (check-valid who)
       (delete/url (url-for-delete-photo)
                   #:headers (cons "If-Match: *" (send user headers))

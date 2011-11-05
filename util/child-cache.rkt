@@ -1,11 +1,13 @@
 #lang racket/base
 (require racket/class)
 (provide child-cache%
-         child<%>)
+         child<%>
+         child%)
 
 (define child<%>
   (interface ()
     valid?
+    check-valid
     invalidate!
     update!
     ))
@@ -35,3 +37,13 @@
       (for ([(key aux) (in-hash key=>aux-hash)])
         (intern key aux)))
     ))
+
+(define child%
+  (class* object% (child<%>)
+    (super-new)
+    (define is-valid? #t)
+    (define/public (valid?) is-valid?)
+    (define/public (check-valid who)
+      (unless (valid?) (error who "no longer valid")))
+    (define/public (invalidate!) (set! is-valid? #f))
+    (define/public (update! new-aux) (void))))

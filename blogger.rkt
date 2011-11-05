@@ -8,36 +8,63 @@
          "util/child-cache.rkt"
          "util/sxml.rkt"
          (planet clements/sxml2:1))
-(provide (all-defined-out))
+(provide blogger-scope
+         blogger-user<%>
+         blogger-user%
+         blogger-user
+         blogger<%>
+         blogger%
+         blogger-post<%>
+         blogger-post%)
 
 #|
 Blogger
 Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protocol.html
 |#
 
+(define blogger-user<%>
+  (interface ()
+    find-blog ;; string [default] -> blogger<%>
+    list-blogs ;; -> (listof blogger<%>)
+    page ;; -> SXML
+    ))
+
+(define blogger<%>
+  (interface ()
+    page ;; -> SXML
+    create-html-post ;; string (U path-string (listof string)) ... -> SXML
+    ))
+
+(define blogger-post<%>
+  (interface ()
+    page ;; -> SXML
+    ))
+
+;; ============================================================
+
 (define blogger-scope "http://www.blogger.com/feeds/")
 
 ;; ============================================================
 
-;; blogger-user% represents a profile-id, which may own many blogs
+(define (blogger-user #:oauth2 oauth2)
+  (new blogger-user% (oauth2 oauth2)))
+
 (define blogger-user%
-  (class* object% (#| blogger-user<%> |#)
-    (init-field oauth2
-                profile-id)
+  (class* object% (blogger-user<%>)
+    (init-field oauth2)
     (super-new)
 
     (field [blog-cache
             (new child-cache%
                  (make-child
-                  (lambda (blog-id title)
+                  (lambda (blog-id entry)
                     (new blogger%
                          (oauth2 oauth2)
                          (profile this)
                          (blog-id blog-id)
-                         (title title)))))])
+                         (entry entry)))))])
 
     (define/public (get-oauth2) oauth2)
-    (define/public (get-profile-id) profile-id)
 
     (define/public (find-blog blog-name [default not-given]
                               #:who [who 'blogger-user:find-blog])
@@ -53,24 +80,19 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     (define/public (list-blogs #:who [who 'blogger-user:list-blogs])
       (let* ([doc (page #:who who)]
              [entries ((lift-sxpath "//atom:entry" (xpath-nss 'atom)) doc)])
-        (define get-link
-          (lift-sxpath "//atom:link[@rel='self']/@href/text()" (xpath-nss 'atom)))
-        (define get-title
-          (lift-sxpath "//atom:title/text()" (xpath-nss 'atom)))
         (for/list ([entry (in-list entries)])
-          (let* ([link (car (get-link entry))]
-                 [title (car (get-title entry))]
+          (let* ([link (atom:get-self-link entry)]
                  [blog-id (cadr (regexp-match #rx"/feeds/[^/]*/blogs/([^/]*)" link))])
-            (send blog-cache intern blog-id title)))))
+            (send blog-cache intern blog-id entry)))))
 
     (define/public (page #:who [who 'blogger-user:page])
-      (get/url (url-for-blog-list profile-id)
+      (get/url (url-for-blog-list)
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
-    (define/private (url-for-blog-list profile-id)
-      (format "http://www.blogger.com/feeds/~a/blogs" profile-id))
+    (define/private (url-for-blog-list)
+      (format "http://www.blogger.com/feeds/default/blogs"))
 
     (define/public (headers [content-type #f])
       (append (case content-type
@@ -80,19 +102,50 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
               (send oauth2 headers)))
     ))
 
-;; blogger% represents one blog associated with a profile-id
+;; blogger% represents one blog
 (define blogger%
-  (class* object% (#| blogger<%> |#)
+  (class* child% (blogger<%>)
     (init-field oauth2
                 profile
                 blog-id
-                title)
+                entry)
     (super-new)
 
+    (field [post-cache
+            (new child-cache%
+                 (make-child
+                  (lambda (post-id entry)
+                    (new blogger-post% (parent this) (post-id post-id) (entry entry)))))])
+
     (define/public (get-blog-id) blog-id)
-    (define/public (get-title) title)
-    (define/public (valid?) #t)
-    (define/public (update! aux) (void))
+    (define/public (get-title) (atom:get-title entry))
+
+    (define/override (update! new-entry)
+      (super update! new-entry)
+      (set! entry new-entry))
+
+    ;; ----
+
+    (define/public (list-posts #:who [who 'blogger:list-posts])
+      (let* ([doc (page #:who who)]
+             [entries ((lift-sxpath "//atom:entry" (xpath-nss 'atom)) doc)])
+        (for/list ([entry (in-list entries)])
+          (let* ([post-id (atom:get-id entry)])
+            (send post-cache intern post-id entry)))))
+
+    (define/public (find-post post-title
+                              [default not-given]
+                              #:who [who 'blogger:find-post])
+      (let* ([posts (list-posts #:who who)]
+             [post (for/or ([post (in-list posts)])
+                     (and (equal? (send post get-title) post-title) post))])
+        (cond [post post]
+              [(eq? default not-given)
+               (error who "post not found: ~e" post-title)]
+              [(procedure? default) (default)]
+              [else default])))
+
+    ;; ----
 
     (define/public (page #:who [who 'blogger:page])
       (get/url (url-for-page)
@@ -110,11 +163,15 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                                      #:tags [tags null]
                                      #:who [who 'blogger:create-html-post])
       ;; html is either literal list of strings or name of HTML file
-      (post/url (url-for-post)
+      (post/url (url-for-create-post)
                 #:headers (headers 'atom)
                 #:data (let ([body (create-html-post/doc title html draft? tags)])
                          (srl:sxml->xml body))
-                #:handle read-sxml
+                #:handle (lambda (in)
+                           (let ([entry (read-sxml in)])
+                             (send post-cache intern
+                                   (atom:get-id entry)
+                                   entry)))
                 #:who who))
 
     (define/private (create-html-post/doc title html draft? tags)
@@ -137,12 +194,54 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
            ,@(cond [draft? '((app:control (app:draft "yes")))]
                    [else '()])))))
 
-    (define/private (url-for-post)
-      (format "http://www.blogger.com/feeds/~a/posts/default" blog-id))
+    (define/private (url-for-create-post)
+      (atom:get-link/rel "http://schemas.google.com/g/2005#post" entry))
 
     ;; ----
 
     (define/public (headers [content-type #f])
       (send profile headers content-type))
+
+    ))
+
+(define blogger-post%
+  (class* child% (blogger-post<%>)
+    (init-field parent
+                post-id
+                entry)
+    (inherit check-valid)
+    (super-new)
+
+    (define/override (update! new-entry)
+      (super update! new-entry)
+      (set! entry new-entry))
+
+    (define/public (get-title) (atom:get-title entry))
+    (define/public (get-edit-link) (atom:get-edit-link entry))
+    (define/public (get-self-link) (atom:get-self-link entry))
+
+    (define/public (page #:who [who 'blogger-post:page])
+      (check-valid who)
+      (get/url (get-self-link)
+               #:headers (send parent headers)
+               #:handle read-sxml
+               #:who who))
+
+    (define/public (get-html-contents #:who [who 'blogger-post:get-html-contents])
+      (check-valid who)
+      (let* ([doc (page #:who who)]
+             [contents
+              ((lift-sxpath "/atom:entry/atom:content[@type='html']" (xpath-nss 'atom)) doc)])
+        (cond [(pair? contents)
+               ((lift-sxpath "/text()" (xpath-nss 'atom)) (car contents))]
+              [else (error who "no html contents")])))
+
+    (define/public (delete #:who [who 'blogger-post:delete])
+      (check-valid who)
+      (delete/url (get-edit-link)
+                  #:headers (send parent headers)
+                  #:handle void
+                  #:who who)
+      (send (get-field post-cache parent) eject! post-id))
 
     ))
