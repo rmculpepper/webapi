@@ -52,10 +52,10 @@ TO DO:
              (redirect-to
               (let ([auth-server (send oauth2 get-auth-server)]
                     [client (send oauth2 get-client)])
-                (oauth2-get-auth-url #:auth-server auth-server
-                                     #:client client
-                                     #:scopes scopes
-                                     #:redirect-uri "http://localhost:8000/oauth2/response")))]
+                (send auth-server get-auth-request-url
+                      #:client client
+                      #:scopes scopes
+                      #:redirect-uri "http://localhost:8000/oauth2/response")))]
             [(equal? path "oauth2/response")
              (let ([bindings (request-bindings/raw req)])
                (cond [(bindings-assq #"code" bindings)

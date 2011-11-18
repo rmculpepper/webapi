@@ -7,7 +7,6 @@
          (planet neil/json-parsing:1))
 (provide oauth2-auth-server<%>
          oauth2-auth-server
-         oauth2-get-auth-url
 
          oauth2-client<%>
          oauth2-client
@@ -20,8 +19,8 @@
          google-auth-server)
 
 #|
-Based on working draft: http://tools.ietf.org/html/draft-ietf-oauth-v2-16
-Draft expires 11/20/2011.
+Based on working draft: http://tools.ietf.org/html/draft-ietf-oauth-v2-22
+Draft expires 3/25/2012.
 
 "Tested" with Google oauth2 service; may or may not work with others yet.
 
@@ -39,18 +38,16 @@ TODO:
   ;; Also speaks for "resource owner" (grants initial auth-code)
   ;; - for google, effectively the same; may need to split in future
   (interface ()
-    ;; Corresponds to "Authorization Endpoint" in draft section 2.1
-    get-auth-url  ; -> url/string
-
-    ;; Corresponds to "Token Endpoint" in draft section 2.2 (??)
-    get-token-url ; -> url/string
+    get-auth-url  ;; Authorization Endpoint
+    get-token-url ;; Token Endpoint
+    get-auth-request-url
     ))
 
 (define oauth2-client<%>
   ;; Corresponds to "client" in draft
   (interface ()
     get-id     ;; -> string
-    get-secret ;; -> string
+    get-secret ;; -> string/#f
     ))
 
 (define oauth2<%>
@@ -75,7 +72,19 @@ TODO:
                 token-url)
     (super-new)
     (define/public (get-auth-url) auth-url)
-    (define/public (get-token-url) token-url)))
+    (define/public (get-token-url) token-url)
+
+    (define/public (get-auth-request-url #:client client
+                                         #:scopes scopes
+                                         #:redirect-uri [redirect-uri OOB-uri]
+                                         #:state [state #f])
+      (url->string
+       (url-add-query (get-auth-url)
+                      `((response_type . "code")
+                        (client_id . ,(send client get-id))
+                        (redirect_uri . ,redirect-uri)
+                        (scope . ,(string-join scopes " "))
+                        (state . ,(or state ""))))))))
 
 (define (oauth2-auth-server #:auth-url auth-url
                             #:token-url token-url)
@@ -95,21 +104,6 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
 ;; ============================================================
 
-(define (oauth2-get-auth-url #:auth-server auth-server
-                             #:client client
-                             #:scopes scopes
-                             #:redirect-uri [redirect-uri OOB-uri]
-                             #:state [state #f])
-  (url->string
-   (url-add-query (send auth-server get-auth-url)
-                  `((response_type . "code")
-                    (client_id . ,(send client get-id))
-                    (redirect_uri . ,redirect-uri)
-                    (scope . ,(string-join scopes " "))
-                    (state . ,(or state ""))))))
-
-;; ============================================================
-
 (define oauth2-client%
   (class* object% (oauth2-client<%>)
     (init-field id secret)
@@ -125,8 +119,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 (define oauth2%
   (class* object% (oauth2<%>)
     (init-field client
-                auth-server
-                [re-acquire-callback #f])
+                auth-server)
     (field [scopes null]
            [token-type #f]
            [access-token #f]
@@ -148,10 +141,6 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
     This code makes the following assumptions:
      - if we have a refresh token, we use it
-     - otherwise, if a re-acquire-callback is given, we use it
-
-    The re-acquire-callback can be used to prompt a web interaction,
-    for example.
     |#
 
     ;; ----
@@ -176,8 +165,6 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
     (define/public (re-acquire-token! #:who [who 'oauth2:re-acquire-token!])
       (cond [refresh-token
              (refresh-token! #:who who)]
-            [re-acquire-callback
-             (re-acquire-callback this)]
             [else
              (error who "access token expired; no method of re-acquiring access")]))
 
@@ -213,7 +200,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
       (alist->form-urlencoded
        `((grant_type . "authorization_code")
          (client_id . ,(send client get-id))
-         (client_secret . ,(send client get-secret))
+         (client_secret . ,(or (send client get-secret) ""))
          (code . ,auth-code)
          (redirect_uri . ,redirect-uri))))
 
@@ -229,9 +216,8 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
       (alist->form-urlencoded
        `((grant_type . "refresh_token")
          (client_id . ,(send client get-id))
-         (client_secret . ,(send client get-secret))
-         (refresh_token . ,refresh-token)
-         #| (scopes . ,(string-join scopes " ")) |#)))
+         (client_secret . ,(or (send client get-secret) ""))
+         (refresh_token . ,refresh-token))))
 
     #|
     On success, requests return JSON
@@ -277,8 +263,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
           #:who 'oauth2/auth-code)
     oauth2))
 
-(define (oauth2/refresh-token auth-server client refresh-token
-                              #:redirect-uri [redirect-uri OOB-uri])
+(define (oauth2/refresh-token auth-server client refresh-token)
   (let ([oauth2 (new oauth2% (auth-server auth-server) (client client))])
     (set-field! refresh-token oauth2 refresh-token)
     (send oauth2 refresh-token! #:who 'oauth2/refresh-token)
