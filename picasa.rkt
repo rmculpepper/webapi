@@ -8,7 +8,13 @@
          "util/child-cache.rkt"
          "util/sxml.rkt"
          (planet clements/sxml2:1))
-(provide (all-defined-out))
+(provide picasa-scope
+
+         picasa<%>
+         picasa-album<%>
+         picasa-photo<%>
+
+         picasa)
 
 #|
 Reference:
@@ -57,8 +63,7 @@ TODO
 
 (define picasa%
   (class* object% (picasa<%>)
-    (init-field oauth2
-                user-id)
+    (init-field oauth2)
     (super-new)
 
     ;; ==== Tables & Caches ====
@@ -100,13 +105,13 @@ TODO
     ;; ==== User page ====
 
     (define/public (page #:who [who 'picasa:page])
-      (get/url (url-for-user-page user-id)
+      (get/url (url-for-user-page)
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
-    (define/private (url-for-user-page user-id)
-      (format "https://picasaweb.google.com/data/feed/api/user/~a" user-id))
+    (define/private (url-for-user-page)
+      (format "https://picasaweb.google.com/data/feed/api/user/default"))
 
     ;; ==== Album page ====
 
@@ -132,7 +137,7 @@ TODO
     (define/public (create-album title
                                  #:access [access "public"]
                                  #:who [who 'picasa:create-album])
-      (post/url (url-for-create-album user-id)
+      (post/url (url-for-create-album)
                 #:headers (headers 'atom)
                 #:data (srl:sxml->xml (create-album/doc title #:access access))
                 #:handle (lambda (in)
@@ -141,7 +146,7 @@ TODO
                 #:fail "album creation failed"))
 
     (define/private (url-for-create-album)
-      (format "https://picasaweb.google.com/data/feed/api/user/~a" user-id))
+      (format "https://picasaweb.google.com/data/feed/api/user/default"))
 
     (define/private (create-album/doc title
                                       #:access [access "public"])
@@ -174,9 +179,8 @@ TODO
 
     ))
 
-(define (picasa #:user-id user-id
-                #:oauth2 oauth2)
-  (new picasa% (user-id user-id) (oauth2 oauth2)))
+(define (picasa #:oauth2 oauth2)
+  (new picasa% (oauth2 oauth2)))
 
 ;; ============================================================
 
@@ -237,8 +241,8 @@ TODO
                 #:who who))
 
     (define/private (url-for-create-photo)
-      (format "https://picasaweb.google.com/data/feed/api/user/~a/albumid/~a"
-              (get-field user-id parent) album-id))
+      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a"
+              album-id))
 
     (define/private (image-path->content-type image-path)
       (cond [(regexp-match #rx"\\.png$" image-path) 'image/png]
@@ -251,12 +255,12 @@ TODO
     ;; ----
 
     (define/private (url-for-album)
-      (format "https://picasaweb.google.com/data/feed/api/user/~a/albumid/~a"
-              (get-field user-id parent) album-id))
+      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a"
+              album-id))
 
     (define/private (url-for-delete-album)
-      (format "https://picasaweb.google.com/data/entry/api/user/~a/albumid/~a"
-              (get-field user-id parent) album-id))
+      (format "https://picasaweb.google.com/data/entry/api/user/default/albumid/~a"
+              album-id))
     ))
 
 ;; ============================================================
@@ -289,14 +293,12 @@ TODO
     ;; ----
 
     (define/private (url-for-photo)
-      (format "https://picasaweb.google.com/data/feed/api/user/~a/albumid/~a/photoid/~a"
-              (get-field user-id user)
+      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a/photoid/~a"
               (get-field album-id album)
               photo-id))
 
     (define/private (url-for-delete-photo)
-      (format "https://picasaweb.google.com/data/entry/api/user/~a/albumid/~a/photoid/~a"
-              (get-field user-id user)
+      (format "https://picasaweb.google.com/data/entry/api/user/default/albumid/~a/photoid/~a"
               (get-field album-id album)
               photo-id))
 

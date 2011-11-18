@@ -18,14 +18,14 @@ Atom feed, and editing metadata is not currently supported at all.
 
 @definterface[picasa<%> ()]{
 
-Represents a connection to the Picasa Web Albums of a particular user
-ID and an OAuth2 authorization.
+Represents an authorized connection to the Picasa Web Albums of a
+particular user.
 
 Obtain an instance via @racket[picasa].
 
 @defmethod[(list-albums)
            (listof (is-a?/c picasa-album<%>))]{
-  List the albums owned by the connection's user ID.
+  List the albums owned by the user.
 }
 @defmethod[(find-album [album-name string?]
                        [default any/c (lambda () (error ....))])
@@ -40,17 +40,15 @@ Obtain an instance via @racket[picasa].
 }
 @defmethod[(create-album [album-name string?])
            (is-a?/c picasa-album<%>)]{
-
   Creates a new album named @racket[album-name].
 }
 }
 
-@defproc[(picasa [#:user-id user-id string?]
-                 [#:oauth2 oauth2 (is-a?/c oauth2<%>)])
+@defproc[(picasa [#:oauth2 oauth2 (is-a?/c oauth2<%>)])
          (is-a?/c picasa<%>)]{
-  Creates a @racket[picasa<%>] object for the albums of user
-  @racket[user-id]. The @racket[oauth2] object must have been created
-  with @racket[picasa-scope] in its list of scopes.
+  Creates a @racket[picasa<%>] object for the albums of the user
+  represented by @racket[oauth2], which must have been with
+  @racket[picasa-scope] in its list of scopes.
 }
 
 @defthing[picasa-scope string?]{
