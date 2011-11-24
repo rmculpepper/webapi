@@ -7,7 +7,8 @@
          "util/net.rkt"
          "util/child-cache.rkt"
          "util/sxml.rkt"
-         (planet clements/sxml2:1))
+         (planet clements/sxml2:1)
+         (planet neil/html-writing:1))
 (provide blogger-scope
          blogger-user<%>
          blogger-user%
@@ -165,7 +166,10 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
       ;; html is either literal list of strings or name of HTML file
       (post/url (url-for-create-post)
                 #:headers (headers 'atom)
-                #:data (let ([body (create-html-post/doc title html draft? tags)])
+                #:data (let* ([html-body
+                               (cond [(input-port? html) (port->lines html)]
+                                     [else (map xexp->html html)])]
+                              [body (create-html-post/doc title html-body draft? tags)])
                          (srl:sxml->xml body))
                 #:handle (lambda (in)
                            (let ([entry (read-sxml in)])
@@ -174,25 +178,22 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                                    entry)))
                 #:who who))
 
-    (define/private (create-html-post/doc title html draft? tags)
+    (define/private (create-html-post/doc title html-body draft? tags)
       ;; Include the contents of html-file in doc as a *string*;
       ;; that way its markup gets escaped when atom xml is written.
-      (let ([body
-             (cond [(list? html) html]
-                   [else (list (call-with-input-file html port->string))])])
-        `(*TOP*
-          (@ (*NAMESPACES*
-              (atom "http://www.w3.org/2005/Atom")
-              (app  "http://www.w3.org/2007/app")))
-          (*PI* xml "version='1.0' encoding='UTF-8'")
-          (atom:entry
-           (atom:title (@ (type "text")) ,title)
-           (atom:content (@ (type "html")) ,@body)
-           ,@(for/list ([tag (in-list tags)])
-               `(atom:category (@ (scheme "http://www.blogger.com/atom/ns#")
-                                  (term ,tag))))
-           ,@(cond [draft? '((app:control (app:draft "yes")))]
-                   [else '()])))))
+      `(*TOP*
+        (@ (*NAMESPACES*
+            (atom "http://www.w3.org/2005/Atom")
+            (app  "http://www.w3.org/2007/app")))
+        (*PI* xml "version='1.0' encoding='UTF-8'")
+        (atom:entry
+         (atom:title (@ (type "text")) ,title)
+         (atom:content (@ (type "html")) ,@html-body)
+         ,@(for/list ([tag (in-list tags)])
+             `(atom:category (@ (scheme "http://www.blogger.com/atom/ns#")
+                                (term ,tag))))
+         ,@(cond [draft? '((app:control (app:draft "yes")))]
+                 [else '()]))))
 
     (define/private (url-for-create-post)
       (atom:get-link/rel "http://schemas.google.com/g/2005#post" entry))

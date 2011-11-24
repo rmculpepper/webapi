@@ -71,15 +71,14 @@ Obtain via @method[blogger-user<%> find-blog] or
   as well as entries for all of the blog's posts.
 }
 @defmethod[(create-html-post [title string?]
-                             [html-file-or-contents (or/c path-string? (listof string?))]
+                             [html (or/c input-port? (listof @#,elem{SXML}))]
                              [#:draft? draft? any/c #t]
                              [#:tags tags (listof string?) null])
            (is-a?/c blogger-post<%>)]{
   Creates a new blog post with the title @racket[title]. If
-  @racket[html-file-or-contents] is a string or path, the contents of
-  the file named @racket[html-file-or-contents] are used as the body
-  of the post. If @racket[html-file-or-contents] is a list of strings,
-  the strings themselves are used as the contents of the post.
+  @racket[html] is a port, the contents of the port is used as the
+  body of the post. Otherwise, it is interpreted as HTML expressed as
+  a list of SXML elements.
 }
 }
 

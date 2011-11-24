@@ -19,7 +19,8 @@ Atom feed, and editing metadata is not currently supported at all.
 @definterface[picasa<%> ()]{
 
 Represents an authorized connection to the Picasa Web Albums of a
-particular user.
+particular user, namely the one who approved the OAuth2 authorization
+request.
 
 Obtain an instance via @racket[picasa].
 
@@ -47,8 +48,8 @@ Obtain an instance via @racket[picasa].
 @defproc[(picasa [#:oauth2 oauth2 (is-a?/c oauth2<%>)])
          (is-a?/c picasa<%>)]{
   Creates a @racket[picasa<%>] object for the albums of the user
-  represented by @racket[oauth2], which must have been with
-  @racket[picasa-scope] in its list of scopes.
+  represented by @racket[oauth2]. The scopes of @racket[oauth2] must
+  include @racket[picasa-scope].
 }
 
 @defthing[picasa-scope string?]{
