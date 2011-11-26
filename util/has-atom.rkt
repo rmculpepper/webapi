@@ -67,7 +67,7 @@
 
     ;; Must override.
     (define/pubment (internal-get-atom #:who who)
-      (inner (error who "not implemented") #:who who))
+      (inner (error who "not implemented") internal-get-atom #:who who))
     ;; May override.
     (define/public (update-atom-cache! new-atom)
       (set! atom new-atom))
@@ -76,7 +76,7 @@
 ;; ----
 
 (define has-atom/parent-mixin
-  (mixin (has-atom<%) (has-atom/parent<%>)
+  (mixin (has-atom<%>) (has-atom/parent<%>)
     (field [table (make-hash)]) ;; key => child<%>
     (inherit get-atom
              get-feed-atom)

@@ -3,6 +3,7 @@
          racket/port
          net/url
          net/uri-codec
+         "atom.rkt"
          "oauth2.rkt"
          "util/net.rkt"
          "util/has-atom.rkt"
@@ -57,7 +58,8 @@ TODO
     (init-field oauth2)
     (inherit get-atom
              list-children
-             find-child-by-title)
+             find-child-by-title
+             intern)
     (super-new)
 
     ;; ==== Overrides ====
@@ -103,9 +105,7 @@ TODO
       (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                 #:headers (headers 'atom)
                 #:data (srl:sxml->xml (create-album/doc title #:access access))
-                #:handle (lambda (in)
-                           (let ([aa (new atom% (sxml (read-sxml in)))])
-                             (send album-cache intern aa)))
+                #:handle (lambda (in) (intern (new atom% (sxml (read-sxml in)))))
                 #:who who
                 #:fail "album creation failed"))
 
@@ -144,6 +144,8 @@ TODO
     (init-field parent)
     (inherit get-atom
              get-feed-atom
+             list-children
+             find-child-by-title
              intern
              check-valid
              reset!)
@@ -191,7 +193,7 @@ TODO
                                    (format "Slug: ~a" name)
                                    (send parent headers)))
                 #:data (call-with-input-file image-path port->bytes)
-                #:handle (lambda (in) (send photo-cache intern (read-sxml in)))
+                #:handle (lambda (in) (intern (read-sxml in)))
                 #:who who))
 
     (define/private (image-path->content-type image-path)
