@@ -5,15 +5,13 @@
          net/uri-codec
          "oauth2.rkt"
          "util/net.rkt"
-         "util/child-cache.rkt"
+         "util/has-atom.rkt"
          "util/sxml.rkt"
          (planet clements/sxml2:1))
 (provide picasa-scope
-
          picasa<%>
          picasa-album<%>
          picasa-photo<%>
-
          picasa)
 
 #|
@@ -33,91 +31,56 @@ TODO
 ;; ============================================================
 
 (define picasa<%>
-  (interface ()
+  (interface (has-atom<%>)
     list-albums     ;; -> (listof album<%>)
     find-album      ;; string [default] -> album<%>
-
-    page            ;; -> sxml
-    album-page      ;; string -> sxml
-
     create-album    ;; string -> album<%>
-    delete-album    ;; string -> void
     ))
 
 (define picasa-album<%>
-  (interface ()
-    valid?        ;; -> boolean
-    page          ;; -> sxml
+  (interface (has-atom<%>)
+    list-photos   ;; -> (listof photo<%>)
+    find-photo    ;; string -> photo<%>
     delete        ;; -> void
     create-photo  ;; path-string string -> photo<%>
     ))
 
 (define picasa-photo<%>
-  (interface ()
-    valid?  ;; -> boolean
-    page    ;; -> sxml
+  (interface (has-atom<%>)
     delete  ;; -> void
     ))
 
 ;; ============================================================
 
 (define picasa%
-  (class* object% (picasa<%>)
+  (class* has-atom/parent% (picasa<%>)
     (init-field oauth2)
+    (inherit get-atom
+             list-children
+             find-child-by-title)
     (super-new)
 
-    ;; ==== Tables & Caches ====
+    ;; ==== Overrides ====
 
-    (field [album-cache
-            (new child-cache%
-                 (make-child (lambda (album-id aux)
-                               (new picasa-album% (parent this) (album-id album-id)))))])
+    (define/override (make-child atom)
+      (new picasa-album% (parent this) (atom atom)))
 
-    ;; ==== List albums ====
-
-    (define/public (list-albums #:who [who 'picasa:list-albums])
-      (let* ([doc (page #:who who)]
-             [album-ids ((lift-sxpath "//gphoto:id/text()" (xpath-nss 'gphoto)) doc)])
-        (for/list ([album-id (in-list album-ids)]) (send album-cache intern album-id #f))))
-
-    (define/public (find-album album-name [default not-given]
-                               #:who [who 'picasa:find-album])
-      (let ([entry (get-album-entry who album-name default)])
-        (send album-cache intern (extract-album-id entry) #f)))
-
-    (define/private (get-album-entry who album-name [default not-given])
-      (let* ([doc (page #:who who)]
-             [entries ((lift-sxpath "//atom:entry" (xpath-nss 'atom)) doc)]
-             [entry (for/or ([entry (in-list entries)])
-                      (and (equal? ((lift-sxpath "//atom:title/text()" (xpath-nss 'atom)) entry)
-                                   (list album-name))
-                           entry))])
-        (cond [entry entry]
-              [(eq? default not-given)
-               (error who "album not found: ~e" album-name)]
-              [(procedure? default) (default)]
-              [else default])))
-
-    (define/private (extract-album-id doc)
-      (let ([link ((lift-sxpath "//gphoto:id/text()" (xpath-nss 'gphoto)) doc)])
-        (car link)))
-
-    ;; ==== User page ====
-
-    (define/public (page #:who [who 'picasa:page])
-      (get/url (url-for-user-page)
+    (define/override (internal-get-atom #:who who)
+      (get/url "https://picasaweb.google.com/data/feed/api/user/default"
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
-    (define/private (url-for-user-page)
-      (format "https://picasaweb.google.com/data/feed/api/user/default"))
+    ;; ==== List albums ====
 
-    ;; ==== Album page ====
+    (define/public (list-albums #:reload? [reload? #f]
+                                #:who [who 'picasa:list-albums])
+      (list-children #:reload? reload? #:who who))
 
-    (define/public (album-page album-name)
-      (let ([a (find-album album-name #:who 'picasa:album-page)])
-        (send a page #:who 'picasa:album-page)))
+    (define/public (find-album album-name
+                               #:reload? [reload? #f]
+                               #:who [who 'picasa:find-album])
+      (find-child-by-title album-name #:reload? reload? #:who who))
 
     ;; ==== Create album ====
 
@@ -137,16 +100,14 @@ TODO
     (define/public (create-album title
                                  #:access [access "public"]
                                  #:who [who 'picasa:create-album])
-      (post/url (url-for-create-album)
+      (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                 #:headers (headers 'atom)
                 #:data (srl:sxml->xml (create-album/doc title #:access access))
                 #:handle (lambda (in)
-                           (send album-cache intern (extract-album-id (read-sxml in)) #f))
+                           (let ([aa (new atom% (sxml (read-sxml in)))])
+                             (send album-cache intern aa)))
                 #:who who
                 #:fail "album creation failed"))
-
-    (define/private (url-for-create-album)
-      (format "https://picasaweb.google.com/data/feed/api/user/default"))
 
     (define/private (create-album/doc title
                                       #:access [access "public"])
@@ -161,12 +122,6 @@ TODO
          (gphoto:access ,access)
          (atom:category (@ (scheme "http://schemas.google.com/g/2005#kind")
                            (term   "http://schemas.google.com/photos/2007#album"))))))
-
-    ;; ==== Delete album ====
-
-    (define/public (delete-album album-name #:who [who 'picasa:delete-album])
-      (let ([a (find-album album-name #:who who)])
-        (send a delete #:who who)))
 
     ;; ========================================
 
@@ -185,121 +140,93 @@ TODO
 ;; ============================================================
 
 (define picasa-album%
-  (class* child% (picasa-album<%>)
-    (init-field parent album-id)
-    (inherit check-valid)
+  (class* has-atom/parent+child% (picasa-album<%>)
+    (init-field parent)
+    (inherit get-atom
+             get-feed-atom
+             intern
+             check-valid
+             reset!)
     (super-new)
 
-    (field [photo-cache
-            (new child-cache%
-                 (make-child
-                  (lambda (photo-id aux)
-                    (new picasa-photo%
-                         (user parent) (album this) (photo-id photo-id)))))])
+    ;; ==== Overrides ====
 
-    (define/override (invalidate!)
-      (super invalidate!)
-      (send photo-cache reset! null))
+    (define/override (make-child atom)
+      (new picasa-photo% (user parent) (album this) (atom atom)))
 
-    (define/public (list-photos #:who [who 'picasa-album:list-photos])
+    (define/override (internal-get-atom #:who who)
       (check-valid who)
-      (let* ([doc (page #:who who)]
-             [photo-ids ((lift-sxpath "//atom:entry//gphoto:id/text()"
-                                      (xpath-nss 'atom 'gphoto))
-                         doc)])
-        (for/list ([photo-id (in-list photo-ids)])
-          (send photo-cache intern photo-id #f))))
-
-    (define/public (page #:who [who 'picasa-album:page])
-      (check-valid who)
-      (get/url (url-for-album)
+      (get/url (send (get-atom) get-link "self") ;; or #feed?
                #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
 
+    ;; ====
+
+    (define/public (list-photos #:reload? [reload? #f]
+                                #:who [who 'picasa-album:list-photos])
+      (check-valid who)
+      (list-children #:reload? reload? #:who who))
+
+    (define/public (find-photo photo-title
+                               #:reload? [reload? #f]
+                               #:who [who 'picasa-album:find-photo])
+      (check-valid who)
+      (find-child-by-title photo-title #:reload? reload? #:who who))
+
     (define/public (delete #:who [who 'picasa-album:delete])
       (check-valid who)
-      (delete/url (url-for-delete-album)
+      (delete/url (send (get-atom) get-link "edit")
                   #:headers (cons "If-Match: *" (send parent headers))
                   #:handle void
                   #:who who)
-      (send (get-field album-cache parent) eject! album-id))
+      (send parent eject! (send (get-atom) get-id)))
 
     (define/public (create-photo image-path name
                                  #:who [who 'picasa-album:create-photo])
       (check-valid who)
-      (post/url (url-for-create-photo)
+      (post/url (send (get-atom) get-link "edit")
                 #:headers (let ([type (image-path->content-type image-path)])
                             (list* (format "Content-Type: ~a" type)
                                    (format "Slug: ~a" name)
                                    (send parent headers)))
                 #:data (call-with-input-file image-path port->bytes)
-                #:handle (lambda (in)
-                           (send photo-cache intern
-                                 (extract-photo-id (read-sxml in))
-                                 #f))
+                #:handle (lambda (in) (send photo-cache intern (read-sxml in)))
                 #:who who))
-
-    (define/private (url-for-create-photo)
-      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a"
-              album-id))
 
     (define/private (image-path->content-type image-path)
       (cond [(regexp-match #rx"\\.png$" image-path) 'image/png]
             [else 'image/jpeg]))
-
-    (define/private (extract-photo-id doc)
-      (define link ((lift-sxpath "//gphoto:id/text()" (xpath-nss 'gphoto)) doc))
-      (car link))
-
-    ;; ----
-
-    (define/private (url-for-album)
-      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a"
-              album-id))
-
-    (define/private (url-for-delete-album)
-      (format "https://picasaweb.google.com/data/entry/api/user/default/albumid/~a"
-              album-id))
     ))
 
 ;; ============================================================
 
 (define picasa-photo%
-  (class* child% (picasa-photo<%>)
+  (class* has-atom/child% (picasa-photo<%>)
     (init-field user
-                album
-                photo-id)
-    (inherit check-valid)
+                album)
+    (inherit get-atom
+             check-valid)
     (super-new)
 
-    (define/public (page #:who [who 'picasa-photo:page])
+    ;; ==== Overrides ====
+
+    (define/public (internal-get-atom #:who who)
       (check-valid who)
       ;; value of atom:icon ?
-      (get/url (url-for-photo)
+      (get/url (send (get-atom) get-link "self")
                #:headers (send user headers)
                #:handle read-sxml
                #:who who))
 
+    ;; ====
+
     (define/public (delete #:who [who 'picasa-photo:delete])
       (check-valid who)
-      (delete/url (url-for-delete-photo)
+      (delete/url (send (get-atom) get-link "edit")
                   #:headers (cons "If-Match: *" (send user headers))
                   #:handle void
                   #:who who
                   #:fail "photo deletion failed")
-      (send (get-field photo-cache album) eject! photo-id))
-
-    ;; ----
-
-    (define/private (url-for-photo)
-      (format "https://picasaweb.google.com/data/feed/api/user/default/albumid/~a/photoid/~a"
-              (get-field album-id album)
-              photo-id))
-
-    (define/private (url-for-delete-photo)
-      (format "https://picasaweb.google.com/data/entry/api/user/default/albumid/~a/photoid/~a"
-              (get-field album-id album)
-              photo-id))
-
+      (send album eject! (send (get-atom) get-id)))
     ))

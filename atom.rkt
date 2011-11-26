@@ -27,6 +27,7 @@ interned, no parent link, etc.
     get-raw-link ;; string -> SXML
     get-entries  ;; -> (listof atom<%>)
     get-raw-entries ;; -> (listof SXML)
+    get-tag-value;; symbol -> string/#f
     ))
 
 (define atom%
@@ -72,6 +73,9 @@ interned, no parent link, etc.
 
     (define/public (get-raw-entries)
       ((sxpath '(atom:entry)) root))
+
+    (define/public (get-tag-value tag)
+      (get1 tag))
 
     ;; ----
 
