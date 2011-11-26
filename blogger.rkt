@@ -24,21 +24,23 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 |#
 
 (define blogger-user<%>
-  (interface ()
-    find-blog ;; string [default] -> blogger<%>
+  (interface (has-atom<%>)
     list-blogs ;; -> (listof blogger<%>)
-    page ;; -> SXML
+    find-blog  ;; string [default] -> blogger<%>
+    ;; no create-blog
     ))
 
 (define blogger<%>
-  (interface ()
-    page ;; -> SXML
+  (interface (has-atom<%>)
+    list-posts       ;; -> (listof blogger-post<%>)
+    find-post        ;; string -> blogger-post<%>
     create-html-post ;; string (U path-string (listof string)) ... -> SXML
+    ;; no delete-blog
     ))
 
 (define blogger-post<%>
-  (interface ()
-    page ;; -> SXML
+  (interface (has-atom<%>)
+    delete  ;; -> void
     ))
 
 ;; ============================================================
@@ -51,49 +53,36 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
   (new blogger-user% (oauth2 oauth2)))
 
 (define blogger-user%
-  (class* object% (blogger-user<%>)
+  (class* has-atom/parent% (blogger-user<%>)
     (init-field oauth2)
+    (inherit list-children
+             find-child-by-title)
     (super-new)
 
-    (field [blog-cache
-            (new child-cache%
-                 (make-child
-                  (lambda (blog-id entry)
-                    (new blogger%
-                         (oauth2 oauth2)
-                         (profile this)
-                         (blog-id blog-id)
-                         (entry entry)))))])
+    ;; ==== Overrides ====
 
-    (define/public (get-oauth2) oauth2)
-
-    (define/public (find-blog blog-name [default not-given]
-                              #:who [who 'blogger-user:find-blog])
-      (let* ([blogs (list-blogs #:who who)]
-             [blog (for/or ([blog (in-list blogs)])
-                     (and (equal? (send blog get-title) blog-name) blog))])
-        (cond [blog blog]
-              [(eq? default not-given)
-               (error who "blog not found: ~e" blog-name)]
-              [(procedure? default) (default)]
-              [else default])))
-
-    (define/public (list-blogs #:who [who 'blogger-user:list-blogs])
-      (let* ([doc (page #:who who)]
-             [entries ((lift-sxpath "//atom:entry" (xpath-nss 'atom)) doc)])
-        (for/list ([entry (in-list entries)])
-          (let* ([link (atom:get-self-link entry)]
-                 [blog-id (cadr (regexp-match #rx"/feeds/[^/]*/blogs/([^/]*)" link))])
-            (send blog-cache intern blog-id entry)))))
-
-    (define/public (page #:who [who 'blogger-user:page])
-      (get/url (url-for-blog-list)
+    (define/override (internal-get-atom #:who who)
+      (get/url "http://www.blogger.com/feeds/default/blogs"
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
-    (define/private (url-for-blog-list)
-      (format "http://www.blogger.com/feeds/default/blogs"))
+    (define/override (make-child atom)
+      (new blogger%
+           (oauth2 oauth2)
+           (parent this)
+           (atom atom)))
+
+    ;; ====
+
+    (define/public (find-blog blog-name
+                              #:reload [reload? #f]
+                              #:who [who 'blogger-user:find-blog])
+      (find-child-by-title blog-name #:reload? reload? #:who who))
+
+    (define/public (list-blogs #:reload? [reload? #f]
+                               #:who [who 'blogger-user:list-blogs])
+      (list-children #:reload? reload? #:who who))
 
     (define/public (headers [content-type #f])
       (append (case content-type
@@ -105,57 +94,35 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 
 ;; blogger% represents one blog
 (define blogger%
-  (class* child% (blogger<%>)
-    (init-field oauth2
-                profile
-                blog-id
-                entry)
+  (class* has-atom/parent+child% (blogger<%>)
+    (init-field oauth2)
+    (inherit get-atom
+             list-children
+             find-child-by-title
+             intern)
     (super-new)
 
-    (field [post-cache
-            (new child-cache%
-                 (make-child
-                  (lambda (post-id entry)
-                    (new blogger-post% (parent this) (post-id post-id) (entry entry)))))])
+    ;; ==== Overrides ====
 
-    (define/public (get-blog-id) blog-id)
-    (define/public (get-title) (atom:get-title entry))
+    (define/override (make-child atom)
+      (new blogger-post%
+           (parent this)
+           (atom atom)))
 
-    (define/override (update! new-entry)
-      (super update! new-entry)
-      (set! entry new-entry))
-
-    ;; ----
-
-    (define/public (list-posts #:who [who 'blogger:list-posts])
-      (let* ([doc (page #:who who)]
-             [entries ((lift-sxpath "//atom:entry" (xpath-nss 'atom)) doc)])
-        (for/list ([entry (in-list entries)])
-          (let* ([post-id (atom:get-id entry)])
-            (send post-cache intern post-id entry)))))
-
-    (define/public (find-post post-title
-                              [default not-given]
-                              #:who [who 'blogger:find-post])
-      (let* ([posts (list-posts #:who who)]
-             [post (for/or ([post (in-list posts)])
-                     (and (equal? (send post get-title) post-title) post))])
-        (cond [post post]
-              [(eq? default not-given)
-               (error who "post not found: ~e" post-title)]
-              [(procedure? default) (default)]
-              [else default])))
-
-    ;; ----
-
-    (define/public (page #:who [who 'blogger:page])
-      (get/url (url-for-page)
+    (define/override (internal-get-atom #:who who)
+      (get/url (send (get-atom) get-link "self")
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
-    (define/private (url-for-page)
-      (format "http://www.blogger.com/feeds/~a/posts/default" blog-id))
+    ;; ----
+
+    (define/public (list-posts #:who [who 'blogger:list-posts])
+      (list-children #:who who))
+
+    (define/public (find-post post-title
+                              #:who [who 'blogger:find-post])
+      (find-name-by-title post-title #:who who))
 
     ;; ----
 
@@ -164,18 +131,14 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                                      #:tags [tags null]
                                      #:who [who 'blogger:create-html-post])
       ;; html is either literal list of strings or name of HTML file
-      (post/url (url-for-create-post)
+      (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                 #:headers (headers 'atom)
                 #:data (let* ([html-body
                                (cond [(input-port? html) (port->lines html)]
                                      [else (map xexp->html html)])]
                               [body (create-html-post/doc title html-body draft? tags)])
                          (srl:sxml->xml body))
-                #:handle (lambda (in)
-                           (let ([entry (read-sxml in)])
-                             (send post-cache intern
-                                   (atom:get-id entry)
-                                   entry)))
+                #:handle (lambda (in) (intern (read-sxml in)))
                 #:who who))
 
     (define/private (create-html-post/doc title html-body draft? tags)
@@ -195,9 +158,6 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
          ,@(cond [draft? '((app:control (app:draft "yes")))]
                  [else '()]))))
 
-    (define/private (url-for-create-post)
-      (atom:get-link/rel "http://schemas.google.com/g/2005#post" entry))
-
     ;; ----
 
     (define/public (headers [content-type #f])
@@ -206,35 +166,27 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     ))
 
 (define blogger-post%
-  (class* child% (blogger-post<%>)
-    (init-field parent
-                post-id
-                entry)
-    (inherit check-valid)
+  (class* has-atom/parent+child% (blogger-post<%>)
+    (inherit-field parent)
+    (inherit get-atom
+             check-valid)
     (super-new)
 
-    (define/override (update! new-entry)
-      (super update! new-entry)
-      (set! entry new-entry))
+    ;; ==== Overrides ====
 
-    (define/public (get-title) (atom:get-title entry))
-    (define/public (get-edit-link) (atom:get-edit-link entry))
-    (define/public (get-self-link) (atom:get-self-link entry))
-
-    (define/public (page #:who [who 'blogger-post:page])
+    (define/override (internal-get-page #:who who)
       (check-valid who)
-      (get/url (get-self-link)
+      (get/url (send (get-atom) get-link "self")
                #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
 
     (define/public (get-html-contents #:who [who 'blogger-post:get-html-contents])
       (check-valid who)
-      (let* ([doc (page #:who who)]
+      (let* ([doc (send (get-atom) get-sxml)]
              [contents
-              ((lift-sxpath "/atom:entry/atom:content[@type='html']" (xpath-nss 'atom)) doc)])
-        (cond [(pair? contents)
-               ((lift-sxpath "/text()" (xpath-nss 'atom)) (car contents))]
+              ((lift-sxpath "/atom:content[@type='html']/text()" (xpath-nss 'atom)) doc)])
+        (cond [(pair? contents) (car contents)]
               [else (error who "no html contents")])))
 
     (define/public (delete #:who [who 'blogger-post:delete])
@@ -243,6 +195,6 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                   #:headers (send parent headers)
                   #:handle void
                   #:who who)
-      (send (get-field post-cache parent) eject! post-id))
+      (invalidate!))
 
     ))

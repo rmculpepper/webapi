@@ -22,7 +22,6 @@ http://code.google.com/apis/picasaweb/docs/2.0/developers_guide_protocol.html
 
 #|
 TODO
- - cache pages
  - support update album/image metadata
  - tags?
 |#
@@ -141,20 +140,21 @@ TODO
 
 (define picasa-album%
   (class* has-atom/parent+child% (picasa-album<%>)
-    (init-field parent)
+    (inherit-field parent)
     (inherit get-atom
              get-feed-atom
              list-children
              find-child-by-title
              intern
+             reset!
              check-valid
-             reset!)
+             invalidate!)
     (super-new)
 
     ;; ==== Overrides ====
 
     (define/override (make-child atom)
-      (new picasa-photo% (user parent) (album this) (atom atom)))
+      (new picasa-photo% (parent this) (atom atom)))
 
     (define/override (internal-get-atom #:who who)
       (check-valid who)
@@ -182,7 +182,7 @@ TODO
                   #:headers (cons "If-Match: *" (send parent headers))
                   #:handle void
                   #:who who)
-      (send parent eject! (send (get-atom) get-id)))
+      (invalidate!))
 
     (define/public (create-photo image-path name
                                  #:who [who 'picasa-album:create-photo])
@@ -191,7 +191,7 @@ TODO
                 #:headers (let ([type (image-path->content-type image-path)])
                             (list* (format "Content-Type: ~a" type)
                                    (format "Slug: ~a" name)
-                                   (send parent headers)))
+                                   (headers)))
                 #:data (call-with-input-file image-path port->bytes)
                 #:handle (lambda (in) (intern (read-sxml in)))
                 #:who who))
@@ -199,16 +199,19 @@ TODO
     (define/private (image-path->content-type image-path)
       (cond [(regexp-match #rx"\\.png$" image-path) 'image/png]
             [else 'image/jpeg]))
+
+    (define/public (headers [content-type #f])
+      (send parent headers content-type))
     ))
 
 ;; ============================================================
 
 (define picasa-photo%
   (class* has-atom/child% (picasa-photo<%>)
-    (init-field user
-                album)
+    (inherit-field parent)
     (inherit get-atom
-             check-valid)
+             check-valid
+             invalidate!)
     (super-new)
 
     ;; ==== Overrides ====
@@ -217,7 +220,7 @@ TODO
       (check-valid who)
       ;; value of atom:icon ?
       (get/url (send (get-atom) get-link "self")
-               #:headers (send user headers)
+               #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
 
@@ -230,5 +233,5 @@ TODO
                   #:handle void
                   #:who who
                   #:fail "photo deletion failed")
-      (send album eject! (send (get-atom) get-id)))
+      (invalidate!))
     ))

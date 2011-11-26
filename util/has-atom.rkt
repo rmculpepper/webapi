@@ -134,13 +134,18 @@
 
 (define has-atom/child-mixin
   (mixin (has-atom<%>) (has-atom/child<%>)
+    (init-field parent)
     (define is-valid? #t)
+    (inherit get-atom)
     (super-new)
 
     (define/public (valid?) is-valid?)
     (define/public (check-valid who)
       (unless (valid?) (error who "no longer valid")))
-    (define/public (invalidate!) (set! is-valid? #f))
+    (define/public (invalidate!)
+      (when is-valid?
+        (set! is-valid? #f)
+        (send parent eject (send (get-atom) get-id))))
     (define/public (update! new-aux) (void))
     ))
 
