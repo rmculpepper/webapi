@@ -3,9 +3,10 @@
          racket/port
          net/url
          net/uri-codec
+         "atom.rkt"
          "oauth2.rkt"
          "util/net.rkt"
-         "util/child-cache.rkt"
+         "util/has-atom.rkt"
          "util/sxml.rkt"
          (planet clements/sxml2:1)
          (planet neil/html-writing:1))
@@ -96,6 +97,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 (define blogger%
   (class* has-atom/parent+child% (blogger<%>)
     (init-field oauth2)
+    (inherit-field parent)
     (inherit get-atom
              list-children
              find-child-by-title
@@ -110,7 +112,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
            (atom atom)))
 
     (define/override (internal-get-atom #:who who)
-      (get/url (send (get-atom) get-link "self")
+      (get/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                #:headers (headers)
                #:handle read-sxml
                #:who who))
@@ -122,7 +124,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 
     (define/public (find-post post-title
                               #:who [who 'blogger:find-post])
-      (find-name-by-title post-title #:who who))
+      (find-child-by-title post-title #:who who))
 
     ;; ----
 
@@ -138,7 +140,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                                      [else (map xexp->html html)])]
                               [body (create-html-post/doc title html-body draft? tags)])
                          (srl:sxml->xml body))
-                #:handle (lambda (in) (intern (read-sxml in)))
+                #:handle (lambda (in) (intern (new atom% (sxml (read-sxml in)))))
                 #:who who))
 
     (define/private (create-html-post/doc title html-body draft? tags)
@@ -161,7 +163,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     ;; ----
 
     (define/public (headers [content-type #f])
-      (send profile headers content-type))
+      (send parent headers content-type))
 
     ))
 
@@ -169,12 +171,13 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
   (class* has-atom/parent+child% (blogger-post<%>)
     (inherit-field parent)
     (inherit get-atom
-             check-valid)
+             check-valid
+             invalidate!)
     (super-new)
 
     ;; ==== Overrides ====
 
-    (define/override (internal-get-page #:who who)
+    (define/override (internal-get-atom #:who who)
       (check-valid who)
       (get/url (send (get-atom) get-link "self")
                #:headers (send parent headers)
@@ -191,7 +194,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 
     (define/public (delete #:who [who 'blogger-post:delete])
       (check-valid who)
-      (delete/url (get-edit-link)
+      (delete/url (send (get-atom) get-link "edit")
                   #:headers (send parent headers)
                   #:handle void
                   #:who who)

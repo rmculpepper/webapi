@@ -5,7 +5,8 @@
          namespace-names
          xpath-nss
          lift-sxpath
-         not-given)
+         not-given
+         do-default)
 
 (define (read-sxml in) (ssax:xml->sxml in namespace-names))
 
@@ -22,23 +23,8 @@
 
 (define not-given (gensym 'not-given))
 
-;; -- Atom utils --
-
-(provide atom:get-id
-         atom:get-title
-         atom:get-edit-link
-         atom:get-self-link
-         atom:get-link/rel)
-
-(define (car* x) (and (pair? x) (car x)))
-(define (atom:get-id doc)
-  (car* ((lift-sxpath "/atom:id/text()" (xpath-nss 'atom)) doc)))
-(define (atom:get-title doc)
-  (car* ((lift-sxpath "/atom:title/text()" (xpath-nss 'atom)) doc)))
-(define (atom:get-edit-link doc)
-  (car* ((lift-sxpath "/atom:link[@rel='edit']/@href/text()" (xpath-nss 'atom)) doc)))
-(define (atom:get-self-link doc)
-  (car* ((lift-sxpath "/atom:link[@rel='self']/@href/text()" (xpath-nss 'atom)) doc)))
-
-(define (atom:get-link/rel rel doc)
-  (car* ((sxpath (format "/atom:link[@rel='~a']/@href/text()" rel) (xpath-nss 'atom)) doc)))
+(define-syntax-rule (do-default default expr)
+  (let ([d default])
+    (cond [(eq? d not-given) expr]
+          [(procedure? d) (d)]
+          [else d])))

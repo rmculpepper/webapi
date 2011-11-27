@@ -1,7 +1,9 @@
 #lang racket/base
 (require racket/class
-         (planet clements/sxml2:1))
-(provide (all-defined-out))
+         (planet clements/sxml2:1)
+         "util/sxml.rkt")
+(provide atom<%>
+         atom%)
 
 #|
 Atom 1.0
@@ -19,15 +21,16 @@ interned, no parent link, etc.
 (define atom<%>
   ;; comprises atom-feed<%>, atom-entry<%>
   (interface ()
+    is-feed?     ;; -> boolean
     get-sxml     ;; -> SXML
     get-id       ;; -> string
     get-title    ;; -> string
     get-updated  ;; -> string(date)
-    get-link     ;; string -> string
-    get-raw-link ;; string -> SXML
+    get-link     ;; string [default] -> string
+    get-raw-link ;; string [default] -> SXML
     get-entries  ;; -> (listof atom<%>)
     get-raw-entries ;; -> (listof SXML)
-    get-tag-value;; symbol -> string/#f
+    get-tag-value   ;; symbol [default] -> string/#f
     ))
 
 (define atom%
@@ -35,37 +38,30 @@ interned, no parent link, etc.
     (init-field sxml)
 
     (define root
-      (cond [(and (pair? sxml) (memq (car sxml) '(atom:feed atom:entry)))
-             sxml]
-            [else
-             (car* ((sxpath '((*or* atom:feed atom:entry))) sxml))]))
-
-    (unless root
-      (error 'atom% "invalid Atom document: ~e" sxml))
+      (cond [(and (pair? sxml) (memq (car sxml) '(atom:feed atom:entry))) sxml]
+            [else (car* ((sxpath '((*or* atom:feed atom:entry))) sxml))]))
+    (unless root (error 'atom% "invalid Atom document: ~e" sxml))
 
     (super-new)
 
+    (define/public (is-feed?)
+      (eq? 'atom:feed (sxml:element-name root)))
+
     (define/public (get-sxml) sxml)
     (define/public (get-id)
-      (get1 'atom:id))
+      (get1 'atom:get-id 'atom:id))
     (define/public (get-title)
-      (get1 'atom:title))
+      (get1 'atom:get-title 'atom:title))
     (define/public (get-updated)
-      (get1 'atom:updated))
-    (define/public (get-link rel)
-      (car* ((sxpath `((atom:link (@ rel (equal? ,rel))) @ href *text*)) root))
-      #|
-      (let ([raw-link (get-raw-link rel)])
-        (and raw-link
-             (car* ((sxpath '(@ href *text*)) raw-link))))
-      |#)
-    (define/public (get-raw-link rel)
-      (car* ((sxpath `((atom:link (@ rel (equal? ,rel))))) root))
-      #|
-      (car* ((node-join (sxml:child (ntype?? 'atom:link))
-                        (sxml:filter (sxpath `(@ rel (equal? ,rel)))))
-             root))
-      |#)
+      (get1 'atom:get-updated 'atom:updated))
+    (define/public (get-link rel [default not-given])
+      (let ([result ((sxpath `((atom:link (@ rel (equal? ,rel))) @ href *text*)) root)])
+        (cond [(pair? result) (car result)]
+              [else (do-default default (error 'atom:get-link "link ~s not found" rel))])))
+    (define/public (get-raw-link rel [default not-given])
+      (let ([result ((sxpath `((atom:link (@ rel (equal? ,rel))))) root)])
+        (cond [(pair? result) (car result)]
+              [else (do-default default (error 'atom:get-raw-link "link ~s not found" rel))])))
 
     (define/public (get-entries)
       (for/list ([entry (in-list (get-raw-entries))])
@@ -74,13 +70,15 @@ interned, no parent link, etc.
     (define/public (get-raw-entries)
       ((sxpath '(atom:entry)) root))
 
-    (define/public (get-tag-value tag)
-      (get1 tag))
+    (define/public (get-tag-value tag [default not-given])
+      (get1 'atom:get-tag-value tag default))
 
     ;; ----
 
-    (define/private (get1 tag)
-      (car* ((sxpath `(,tag *text*)) root)))
+    (define/private (get1 who tag [default not-given])
+      (let ([result ((sxpath `(,tag *text*)) root)])
+        (cond [(pair? result) (car result)]
+              [else (do-default default (error who "element `~a' not found" tag))])))
 
     ))
 

@@ -216,7 +216,7 @@ TODO
 
     ;; ==== Overrides ====
 
-    (define/public (internal-get-atom #:who who)
+    (define/override (internal-get-atom #:who who)
       (check-valid who)
       ;; value of atom:icon ?
       (get/url (send (get-atom) get-link "self")
@@ -229,7 +229,7 @@ TODO
     (define/public (delete #:who [who 'picasa-photo:delete])
       (check-valid who)
       (delete/url (send (get-atom) get-link "edit")
-                  #:headers (cons "If-Match: *" (send user headers))
+                  #:headers (cons "If-Match: *" (send parent headers))
                   #:handle void
                   #:who who
                   #:fail "photo deletion failed")

@@ -3,6 +3,8 @@
          "../atom.rkt")
 (provide (all-defined-out))
 
+#|
+;; Bug in mixin form causes problems...
 (define-local-member-name
   internal-get-atom
   update-atom-cache!
@@ -14,6 +16,7 @@
   check-valid
   invalidate!
   update!)
+|#
 
 (define has-atom<%>
   (interface ()
@@ -60,14 +63,15 @@
                                  #:who [who 'has-atom:get-raw-atom])
       (send (get-atom #:reload? reload? #:who who) get-sxml))
 
-    (define/private (cache! reload? #:who who)
-      (when (or reload? (not atom) (not (send atom is-feed?)))
+    (define/private (cache! reload? #:need-feed? need-feed? #:who who)
+      (when (or reload? (not atom)
+                (and need-feed? (not (send atom is-feed?))))
         (update-atom-cache! (new atom% (sxml (internal-get-atom #:who who))))
         (void)))
 
     ;; Must override.
-    (define/pubment (internal-get-atom #:who who)
-      (inner (error who "not implemented") internal-get-atom #:who who))
+    (define/public (internal-get-atom #:who who)
+      (error who "not implemented"))
     ;; May override.
     (define/public (update-atom-cache! new-atom)
       (set! atom new-atom))
@@ -88,9 +92,11 @@
 
     (define/public (intern atom)
       (let* ([key (send atom get-id)]
-             [v (hash-ref! table key (lambda () (list (make-child atom))))])
-        (cond [(pair? v) (car v)]
-              [else (begin0 v (send v update! atom))])))
+             [v (hash-ref! table key #f)])
+        (cond [v (begin (send v update! atom) v)]
+              [else (let ([v (make-child atom)])
+                      (hash-set! table key v)
+                      v)])))
 
     (define/public (eject! key)
       (let ([child (hash-ref table key #f)])
@@ -145,7 +151,7 @@
     (define/public (invalidate!)
       (when is-valid?
         (set! is-valid? #f)
-        (send parent eject (send (get-atom) get-id))))
+        (send parent eject! (send (get-atom) get-id))))
     (define/public (update! new-aux) (void))
     ))
 
@@ -160,4 +166,4 @@
     (inherit reset!)
     (define/override (invalidate!)
       (super invalidate!)
-      (reset! null))))
+      (reset! #hash()))))
