@@ -47,7 +47,8 @@ TODO
 
 (define picasa-photo<%>
   (interface (has-atom<%>)
-    delete  ;; -> void
+    get-content-link ;; -> string
+    delete           ;; -> void
     ))
 
 ;; ============================================================
@@ -104,7 +105,7 @@ TODO
       (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                 #:headers (headers 'atom)
                 #:data (srl:sxml->xml (create-album/doc title #:access access))
-                #:handle (lambda (in) (intern (new atom% (sxml (read-sxml in)))))
+                #:handle (lambda (in) (intern (atom (read-sxml in))))
                 #:who who
                 #:fail "album creation failed"))
 
@@ -158,7 +159,7 @@ TODO
 
     (define/override (internal-get-atom #:who who)
       (check-valid who)
-      (get/url (send (get-atom) get-link "self") ;; or #feed?
+      (get/url (send (get-atom) get-link "http://schemas.google.com/g/2005#feed")
                #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
@@ -169,7 +170,7 @@ TODO
                                 #:who [who 'picasa-album:list-photos])
       (check-valid who)
       (list-children #:reload? reload? #:who who))
-
+    
     (define/public (find-photo photo-title
                                #:reload? [reload? #f]
                                #:who [who 'picasa-album:find-photo])
@@ -187,13 +188,13 @@ TODO
     (define/public (create-photo image-path name
                                  #:who [who 'picasa-album:create-photo])
       (check-valid who)
-      (post/url (send (get-atom) get-link "edit")
+      (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#feed")
                 #:headers (let ([type (image-path->content-type image-path)])
                             (list* (format "Content-Type: ~a" type)
                                    (format "Slug: ~a" name)
                                    (headers)))
                 #:data (call-with-input-file image-path port->bytes)
-                #:handle (lambda (in) (intern (read-sxml in)))
+                #:handle (lambda (in) (intern (atom (read-sxml in))))
                 #:who who))
 
     (define/private (image-path->content-type image-path)
@@ -225,6 +226,13 @@ TODO
                #:who who))
 
     ;; ====
+
+    (define/public (get-content-link #:who [who 'picasa-photo:get-content-link])
+      (check-valid who)
+      (let* ([doc (send (get-atom) get-sxml)]
+             [content ((lift-sxpath '(atom:content @ src *text*)) doc)])
+        (cond [(pair? content) (car content)]
+              [else #f])))
 
     (define/public (delete #:who [who 'picasa-photo:delete])
       (check-valid who)

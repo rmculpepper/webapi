@@ -22,7 +22,7 @@
   (interface ()
     get-atom      ;; [...] -> atom<%>
     get-feed-atom ;; [...] -> atom<%>
-    get-raw-atom  ;; [...] -> SXML
+    get-atom-sxml ;; [...] -> SXML
     internal-get-atom  ;; -> SXML
     update-atom-cache! ;; atom<%> -> void
     ))
@@ -46,27 +46,27 @@
 
 (define has-atom-mixin
   (mixin () (has-atom<%>)
-    (init-field [atom #f])
+    (init-field [(atom* atom) #f])
     (super-new)
 
     (define/public (get-atom #:reload? [reload? #f]
                              #:who [who 'has-atom:get-atom])
       (cache! reload? #:need-feed? #f #:who who)
-      atom)
+      atom*)
 
     (define/public (get-feed-atom #:reload? [reload? #f]
                                   #:who [who 'has-atom:get-feed])
       (cache! reload? #:need-feed? #t #:who who)
-      atom)
+      atom*)
 
-    (define/public (get-raw-atom #:reload? [reload? #f]
-                                 #:who [who 'has-atom:get-raw-atom])
+    (define/public (get-atom-sxml #:reload? [reload? #f]
+                                  #:who [who 'has-atom:get-atom-sxml])
       (send (get-atom #:reload? reload? #:who who) get-sxml))
 
     (define/private (cache! reload? #:need-feed? need-feed? #:who who)
-      (when (or reload? (not atom)
-                (and need-feed? (not (send atom is-feed?))))
-        (update-atom-cache! (new atom% (sxml (internal-get-atom #:who who))))
+      (when (or reload? (not atom*)
+                (and need-feed? (not (send atom* is-feed?))))
+        (update-atom-cache! (atom (internal-get-atom #:who who)))
         (void)))
 
     ;; Must override.
@@ -74,7 +74,7 @@
       (error who "not implemented"))
     ;; May override.
     (define/public (update-atom-cache! new-atom)
-      (set! atom new-atom))
+      (set! atom* new-atom))
     ))
 
 ;; ----
@@ -113,7 +113,7 @@
     (define/public (reset! key=>atom-hash)
       (let ([delenda
              (for/list ([key (in-hash-keys table)]
-                        #:when (not (hash-has-key? key=>atom-hash)))
+                        #:when (not (hash-has-key? key=>atom-hash key)))
                key)])
         (for ([key (in-list delenda)])
           (eject! key)))

@@ -6,7 +6,7 @@
           "config.rkt"
           (for-label (this-package-in oauth2 oauth2/web)))
 
-@title[#:tag "oauth2"]{OAuth 2.0 Client (Draft)}
+@title[#:tag "oauth2"]{OAuth 2.0 Client}
 
 @(defmodule/this-package oauth2)
 

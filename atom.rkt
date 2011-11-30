@@ -3,7 +3,7 @@
          (planet clements/sxml2:1)
          "util/sxml.rkt")
 (provide atom<%>
-         atom%)
+         atom)
 
 #|
 Atom 1.0
@@ -23,6 +23,7 @@ interned, no parent link, etc.
   (interface ()
     is-feed?     ;; -> boolean
     get-sxml     ;; -> SXML
+    get-raw-sxml ;; -> SXML
     get-id       ;; -> string
     get-title    ;; -> string
     get-updated  ;; -> string(date)
@@ -47,7 +48,8 @@ interned, no parent link, etc.
     (define/public (is-feed?)
       (eq? 'atom:feed (sxml:element-name root)))
 
-    (define/public (get-sxml) sxml)
+    (define/public (get-sxml) root)
+    (define/public (get-raw-sxml) sxml)
     (define/public (get-id)
       (get1 'atom:get-id 'atom:id))
     (define/public (get-title)
@@ -84,6 +86,9 @@ interned, no parent link, etc.
 
 (define (car* x)
   (and (pair? x) (car x)))
+
+(define (atom sxml)
+  (new atom% (sxml sxml)))
 
 #|
   atomFeed =

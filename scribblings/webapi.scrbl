@@ -25,6 +25,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License and GNU Lesser General Public License for more
 details.
 
+@include-section["atom.scrbl"]
 @include-section["oauth2.scrbl"]
 @include-section["picasa.scrbl"]
 @include-section["blogger.scrbl"]

@@ -140,7 +140,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                                      [else (map xexp->html html)])]
                               [body (create-html-post/doc title html-body draft? tags)])
                          (srl:sxml->xml body))
-                #:handle (lambda (in) (intern (new atom% (sxml (read-sxml in)))))
+                #:handle (lambda (in) (intern (atom (read-sxml in))))
                 #:who who))
 
     (define/private (create-html-post/doc title html-body draft? tags)
