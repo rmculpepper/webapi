@@ -5,8 +5,8 @@
          web-server/http
          web-server/http/bindings
          web-server/templates
-         "../private/net.rkt"
-         "../oauth2.rkt"
+         "net.rkt"
+         "oauth2.rkt"
          web-server/servlet-env)
 (provide oauth2/request-auth-code/web)
 

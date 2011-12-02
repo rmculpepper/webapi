@@ -1,6 +1,7 @@
 #lang scribble/doc
 @(require scribble/manual
           scribble/struct
+          scribble/eval
           "config.rkt")
 
 @title[#:version (my-package-version)]{webapi: Web APIs}
@@ -29,3 +30,5 @@ details.
 @include-section["oauth2.scrbl"]
 @include-section["picasa.scrbl"]
 @include-section["blogger.scrbl"]
+
+@close-eval[the-eval]

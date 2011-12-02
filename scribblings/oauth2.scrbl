@@ -4,7 +4,7 @@
           scribble/struct
           racket/sandbox
           "config.rkt"
-          (for-label (this-package-in oauth2 oauth2/web)))
+          (for-label (this-package-in oauth2)))
 
 @title[#:tag "oauth2"]{OAuth 2.0 Client}
 
@@ -131,10 +131,18 @@ instance.
 @defmethod[(get-auth-url) string?]{
   Returns the base URL for authorization requests presented to the
   resource owner, generally used to obtain authorization codes.
+
+@examples[#:eval the-eval
+(send google-auth-server get-auth-url)
+]
 }
 @defmethod[(get-token-url) string?]{
   Returns the base URL for token requests made automatically by the
   client.
+
+@examples[#:eval the-eval
+(send google-auth-server get-token-url)
+]
 }
 @defmethod[(get-auth-request-url
              [#:client client (is-a?/c oauth2-client<%>)]
@@ -254,10 +262,6 @@ Obtain an instance via @racket[oauth2/request-auth-code/web],
   (long-lived) @racket[refresh-token] to acquire a new short-lived
   access token.
 }
-
-@section[#:tag "oauth2-web"]{OAuth 2.0 Requests Using a Web Browser}
-
-@defmodule/this-package[oauth2/web]
 
 @defproc[(oauth2/request-auth-code/web
              [auth-server (is-a?/c oauth2-auth-server<%>)]
