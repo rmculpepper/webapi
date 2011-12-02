@@ -5,9 +5,9 @@
          net/uri-codec
          "atom.rkt"
          "oauth2.rkt"
-         "util/net.rkt"
-         "util/has-atom.rkt"
-         "util/sxml.rkt"
+         "private/net.rkt"
+         "private/has-atom.rkt"
+         "private/sxml.rkt"
          (planet clements/sxml2:1)
          (planet neil/html-writing:1))
 (provide blogger-scope

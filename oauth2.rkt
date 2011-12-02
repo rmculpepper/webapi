@@ -3,7 +3,7 @@
          racket/string
          net/url
          net/uri-codec
-         "util/net.rkt"
+         "private/net.rkt"
          (planet neil/json-parsing:1))
 (provide oauth2-auth-server<%>
          oauth2-auth-server

@@ -1,7 +1,7 @@
 #lang racket/base
 (require racket/class
          (planet clements/sxml2:1)
-         "util/sxml.rkt")
+         "private/sxml.rkt")
 (provide atom<%>
          atom)
 
