@@ -8,15 +8,15 @@
          "net.rkt"
          "oauth2.rkt"
          web-server/servlet-env)
-(provide oauth2/request-auth-code/web)
+(provide oauth2/request-auth-code/browser)
 
 #|
 TO DO:
  - generalize port from 8000
- - try oauth2/request-access/web again
+ - try oauth2/request-access/browser again
 |#
 
-(define (oauth2/request-auth-code/web auth-server client scopes)
+(define (oauth2/request-auth-code/browser auth-server client scopes)
   (let ([oauth2 (new oauth2%
                      (auth-server auth-server)
                      (client client))])

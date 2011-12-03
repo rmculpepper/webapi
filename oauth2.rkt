@@ -16,6 +16,6 @@
 
 (lazy-require
  ["private/oauth2-web.rkt"
-  (oauth2/request-auth-code/web)])
+  (oauth2/request-auth-code/browser)])
 
-(provide oauth2/request-auth-code/web)
+(provide oauth2/request-auth-code/browser)

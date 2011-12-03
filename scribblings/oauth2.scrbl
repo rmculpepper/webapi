@@ -70,7 +70,7 @@ should @emph{not} be considered secret.
 A native application can obtain an @racket[oauth2<%>] object in the
 following ways:
 @itemlist[
-@item{Use @racket[oauth2/request-auth-code/web] to open a web browser with
+@item{Use @racket[oauth2/request-auth-code/browser] to open a web browser with
   an @emph{authorization code} request to the authorization server. If
   the request is granted, the browser is redirected to a
   @tt{localhost} URL, where a web server created specifically for the
@@ -86,10 +86,10 @@ following ways:
   token'' obtained from an earlier authorization grant. (See
   @method[oauth2<%> get-refresh-token].)}
 ]
-A client program may wish to use @racket[oauth2/request-auth-code/web]
+A client program may wish to use @racket[oauth2/request-auth-code/browser]
 for the initial request and then store the refresh code for future
 runs of the program. Or the client program may just use
-@racket[oauth2/request-auth-code/web] at the beginning of each run, if
+@racket[oauth2/request-auth-code/browser] at the beginning of each run, if
 it has no access to reasonably secure persistent storage.
 
 @subsection{OAuth 2.0 for User-Agent-Based Applications}
@@ -206,7 +206,7 @@ server. Obtain an instance via @racket[oauth2-client].
 
 Represents a client with authorizations for some set of resources.
 
-Obtain an instance via @racket[oauth2/request-auth-code/web],
+Obtain an instance via @racket[oauth2/request-auth-code/browser],
 @racket[oauth2/auth-code], or @racket[oauth2/refresh-token].
 
 @defmethod[(get-client-id) string?]{
@@ -263,7 +263,7 @@ Obtain an instance via @racket[oauth2/request-auth-code/web],
   access token.
 }
 
-@defproc[(oauth2/request-auth-code/web
+@defproc[(oauth2/request-auth-code/browser
              [auth-server (is-a?/c oauth2-auth-server<%>)]
              [client (is-a?/c oauth2-client<%>)]
              [scopes (listof string?)])
