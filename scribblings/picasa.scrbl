@@ -4,7 +4,7 @@
           scribble/struct
           racket/sandbox
           "config.rkt"
-          (for-label (this-package-in oauth2 picasa)))
+          (for-label (this-package-in atom-resource oauth2 picasa)))
 
 @title[#:tag "picasa"]{Picasa Web Albums}
 
@@ -15,35 +15,6 @@ This library supports a small subset of the
 Web Albums API}. Creating and deleting albums and photos is supported,
 but all access to metadata must be done by inspecting the resource's
 Atom feed, and editing metadata is not currently supported at all.
-
-@definterface[picasa<%> ()]{
-
-Represents an authorized connection to the Picasa Web Albums of a
-particular user, namely the one who approved the OAuth2 authorization
-request.
-
-Obtain an instance via @racket[picasa].
-
-@defmethod[(list-albums)
-           (listof (is-a?/c picasa-album<%>))]{
-  List the albums owned by the user.
-}
-@defmethod[(find-album [album-name string?]
-                       [default any/c (lambda () (error ....))])
-           (is-a?/c picasa-album<%>)]{
-  Return an album object representing the album named
-  @racket[album-name]. If no such album exists, @racket[default] is
-  called, if it's a function, or returned otherwise.
-}
-@defmethod[(page) @#,elem{SXML}]{
-  Retrieves the user's Atom feed, which includes descriptions of all
-  of the user's albums.
-}
-@defmethod[(create-album [album-name string?])
-           (is-a?/c picasa-album<%>)]{
-  Creates a new album named @racket[album-name].
-}
-}
 
 @defproc[(picasa [#:oauth2 oauth2 (is-a?/c oauth2<%>)])
          (is-a?/c picasa<%>)]{
@@ -57,38 +28,78 @@ Obtain an instance via @racket[picasa].
   resources.
 }
 
-@definterface[picasa-album<%> ()]{
+@definterface[picasa<%> (atom-feed-resource<%>)]{
+
+Represents an authorized connection to the Picasa Web Albums of a
+particular user, namely the one who approved the OAuth2 authorization
+request.
+
+Obtain an instance via @racket[picasa].
+
+For a @racket[picasa<%>] instance, the @racket[atom-feed-resource<%>]
+methods return @racket[picasa-album<%>] objects.
+
+@defmethod[(list-albums)
+           (listof (is-a?/c picasa-album<%>))]{
+  List the albums owned by the user.
+}
+@defmethod[(find-album [album-name string?])
+           (or/c (is-a?/c picasa-album<%>) #f)]{
+  Return an album object representing the album named
+  @racket[album-name]. If no such album exists, @racket[#f] is
+  returned.
+}
+@defmethod[(create-album [album-name string?])
+           (is-a?/c picasa-album<%>)]{
+  Creates a new album named @racket[album-name].
+}
+}
+
+@definterface[picasa-album<%> (atom-resource<%>)]{
 
 Represents a Picasa Web Album. 
 
 Obtain an instance via @method[picasa<%> list-albums],
-@method[picasa<%> find-album], or @method[picasa<%>
-create-album].
+@method[picasa<%> find-album], @method[picasa<%> create-album], or any
+of the @racket[atom-feed-resource<%>] methods with a
+@racket[picasa<%>] instance.
 
-@defmethod[(page) @#,elem{SXML}]{
-  Retrieves the album's Atom feed, which includes metadata about the
-  album as well as entries for all of the photos it contains.
+For a @racket[picasa-album<%>] instance, the
+@racket[atom-feed-resource<%>] methods return @racket[picasa-photo<%>]
+objects.
+
+@defmethod[(list-photos)
+           (listof (is-a?/c picasa-photo<%>))]{
+  Lists the photos belonging to the album.
+}
+@defmethod[(find-photo [title string?])
+           (or/c (is-a?/c picasa-photo<%>) #f)]{
+  Finds a photo in the album with title @racket[title]. If no such
+  photo exists, returns @racket[#f].
+}
+@defmethod[(create-photo [image-file path-string?]
+                         [title string?])
+           (is-a?/c picasa-photo<%>)]{
+  Creates a new photo with the contents of @racket[image-file] and
+  named @racket[title].
 }
 @defmethod[(delete) void?]{
   Deletes the album.
 }
-@defmethod[(create-photo [image-file path-string?]
-                         [name string?])
-           (is-a?/c picasa-photo<%>)]{
-  Creates a new photo with the contents of @racket[image-file] and
-  named @racket[name].
-}
 }
 
-@definterface[picasa-photo<%> ()]{
+@definterface[picasa-photo<%> (atom-resource<%>)]{
 
 Represents a photo in a Picasa Web Album.
 
-Obtain via @method[picasa-album<%> create-photo].
+Obtain an instance via @method[picasa-album<%> create-photo] or any of
+the @racket[atom-feed-resource<%>] methods with a
+@racket[picasa-album<%>] instance.
 
-@defmethod[(page) @#,elem{SXML}]{
-  Retrieves the photo's Atom feed, which includes metadata about the
-  photo.
+@defmethod[(get-content-link)
+           (or/c string? #f)]{
+  Gets a URL for externally linking to the photo. If no such URL
+  exists, @racket[#f] is returned.
 }
 @defmethod[(delete) void?]{
   Deletes the photo.

@@ -28,7 +28,7 @@ details.
 
 @include-section["atom.scrbl"]
 @include-section["oauth2.scrbl"]
-@include-section["picasa.scrbl"]
 @include-section["blogger.scrbl"]
+@include-section["picasa.scrbl"]
 
 @close-eval[the-eval]

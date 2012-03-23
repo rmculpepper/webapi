@@ -31,22 +31,22 @@ TODO
 ;; ============================================================
 
 (define picasa<%>
-  (interface (has-atom<%>)
+  (interface (atom-resource<%>)
     list-albums     ;; -> (listof album<%>)
-    find-album      ;; string [default] -> album<%>
+    find-album      ;; string [default] -> album<%>/#f
     create-album    ;; string -> album<%>
     ))
 
 (define picasa-album<%>
-  (interface (has-atom<%>)
+  (interface (atom-resource<%>)
     list-photos   ;; -> (listof photo<%>)
-    find-photo    ;; string -> photo<%>
+    find-photo    ;; string -> photo<%>/#f
     delete        ;; -> void
     create-photo  ;; path-string string -> photo<%>
     ))
 
 (define picasa-photo<%>
-  (interface (has-atom<%>)
+  (interface (atom-resource<%>)
     get-content-link ;; -> string
     delete           ;; -> void
     ))
@@ -54,7 +54,7 @@ TODO
 ;; ============================================================
 
 (define picasa%
-  (class* has-atom/parent% (picasa<%>)
+  (class* atom-feed-resource% (picasa<%>)
     (init-field oauth2)
     (inherit get-atom
              list-children
@@ -140,7 +140,7 @@ TODO
 ;; ============================================================
 
 (define picasa-album%
-  (class* has-atom/parent+child% (picasa-album<%>)
+  (class* atom-resource/parent+child% (picasa-album<%>)
     (inherit-field parent)
     (inherit get-atom
              get-feed-atom
@@ -170,12 +170,12 @@ TODO
                                 #:who [who 'picasa-album:list-photos])
       (check-valid who)
       (list-children #:reload? reload? #:who who))
-    
-    (define/public (find-photo photo-title
+
+    (define/public (find-photo title
                                #:reload? [reload? #f]
                                #:who [who 'picasa-album:find-photo])
       (check-valid who)
-      (find-child-by-title photo-title #:reload? reload? #:who who))
+      (find-child-by-title title #:reload? reload? #:who who))
 
     (define/public (delete #:who [who 'picasa-album:delete])
       (check-valid who)
@@ -208,7 +208,7 @@ TODO
 ;; ============================================================
 
 (define picasa-photo%
-  (class* has-atom/child% (picasa-photo<%>)
+  (class* atom-resource/child% (picasa-photo<%>)
     (inherit-field parent)
     (inherit get-atom
              check-valid

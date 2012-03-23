@@ -18,23 +18,31 @@
   update!)
 |#
 
-(define has-atom<%>
+(define atom-resource<%>
   (interface ()
     get-atom      ;; [...] -> atom<%>
     get-feed-atom ;; [...] -> atom<%>
     get-atom-sxml ;; [...] -> SXML
+    ;; ----
+    get-id
+    get-title
+    ;; ----
     internal-get-atom  ;; -> SXML
     update-atom-cache! ;; atom<%> -> void
     ))
 
-(define has-atom/parent<%>
-  (interface (has-atom<%>)
+(define atom-feed-resource<%>
+  (interface (atom-resource<%>)
+    list-children
+    find-children-by-title
+    find-child-by-title
+    ;; ----
     make-child
     intern
     eject!
     reset!))
 
-(define has-atom/child<%>
+(define atom-resource/child<%>
   (interface ()
     valid?
     check-valid
@@ -44,24 +52,30 @@
 
 ;; ----
 
-(define has-atom-mixin
-  (mixin () (has-atom<%>)
+(define atom-resource-mixin
+  (mixin () (atom-resource<%>)
     (init-field [(atom* atom) #f])
     (super-new)
 
     (define/public (get-atom #:reload? [reload? #f]
-                             #:who [who 'has-atom:get-atom])
+                             #:who [who 'atom-resource:get-atom])
       (cache! reload? #:need-feed? #f #:who who)
       atom*)
 
     (define/public (get-feed-atom #:reload? [reload? #f]
-                                  #:who [who 'has-atom:get-feed])
+                                  #:who [who 'atom-resource:get-feed])
       (cache! reload? #:need-feed? #t #:who who)
       atom*)
 
     (define/public (get-atom-sxml #:reload? [reload? #f]
-                                  #:who [who 'has-atom:get-atom-sxml])
+                                  #:who [who 'atom-resource:get-atom-sxml])
       (send (get-atom #:reload? reload? #:who who) get-sxml))
+
+    (define/public (get-id #:who [who 'atom-resource:get-id])
+      (send (get-atom #:who who) get-id))
+
+    (define/public (get-title #:who [who 'atom-resource:get-title])
+      (send (get-atom #:who who) get-title))
 
     (define/private (cache! reload? #:need-feed? need-feed? #:who who)
       (when (or reload? (not atom*)
@@ -79,16 +93,16 @@
 
 ;; ----
 
-(define has-atom/parent-mixin
-  (mixin (has-atom<%>) (has-atom/parent<%>)
-    (field [table (make-hash)]) ;; key => child<%>
+(define atom-feed-resource-mixin
+  (mixin (atom-resource<%>) (atom-feed-resource<%>)
+    (field [table (make-hash)]) ;; id => child<%>
     (inherit get-atom
              get-feed-atom)
     (super-new)
 
-    ;; make-child : key atom<%> -> has-atom/child<%>
+    ;; make-child : atom<%> -> atom-resource/child<%>
     (define/public (make-child atom)
-      (error 'has-atom/parent-mixin:make-child "not implemented"))
+      (error 'atom-feed-resource-mixin:make-child "not implemented"))
 
     (define/public (intern atom)
       (let* ([key (send atom get-id)]
@@ -123,23 +137,29 @@
     ;; ----
 
     (define/public (list-children #:reload? [reload? #f]
-                                  #:who [who 'has-atom/parent:list-children])
+                                  #:who [who 'atom-feed-resource:list-children])
       ;; Can't just get out of table, because want in order
       (let* ([feed (get-feed-atom #:reload? reload? #:who who)])
         (for/list ([child (in-list (send feed get-entries))])
           (intern child))))
 
+    (define/public (find-children-by-title title
+                                           #:reload? [reload? #f]
+                                           #:who [who 'atom-feed-resource:find-children-by-title])
+      (for/list ([child (in-list (list-children #:reload? reload? #:who who))]
+                 #:when (equal? (send (send child get-atom) get-title) title))
+        child))
+
     (define/public (find-child-by-title title
                                         #:reload? [reload? #f]
-                                        #:who [who 'has-atom/parent:find-child-by-title])
-      (for/first ([child (in-list (list-children #:reload? reload? #:who who))]
-                  #:when (equal? (send (send child get-atom) get-title) title))
+                                        #:who [who 'atom-feed-resource:find-child-by-title])
+      (for/first ([child (in-list (find-children-by-title title #:reload? reload? #:who who))])
         child))
 
     ))
 
-(define has-atom/child-mixin
-  (mixin (has-atom<%>) (has-atom/child<%>)
+(define atom-resource/child-mixin
+  (mixin (atom-resource<%>) (atom-resource/child<%>)
     (init-field parent)
     (define is-valid? #t)
     (inherit get-atom)
@@ -157,11 +177,11 @@
 
 ;; ----
 
-(define has-atom% (has-atom-mixin object%))
-(define has-atom/parent% (has-atom/parent-mixin has-atom%))
-(define has-atom/child% (has-atom/child-mixin has-atom%))
-(define has-atom/parent+child%
-  (class (has-atom/child-mixin has-atom/parent%)
+(define atom-resource% (atom-resource-mixin object%))
+(define atom-feed-resource% (atom-feed-resource-mixin atom-resource%))
+(define atom-resource/child% (atom-resource/child-mixin atom-resource%))
+(define atom-resource/parent+child%
+  (class (atom-resource/child-mixin atom-feed-resource%)
     (super-new)
     (inherit reset!)
     (define/override (invalidate!)

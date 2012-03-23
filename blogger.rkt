@@ -11,11 +11,11 @@
          (planet clements/sxml2:1)
          (planet neil/html-writing:1))
 (provide blogger-scope
-         blogger-user<%>
-         blogger-user%
-         blogger-user
          blogger<%>
          blogger%
+         blogger
+         blogger-blog<%>
+         blogger-blog%
          blogger-post<%>
          blogger-post%)
 
@@ -24,15 +24,15 @@ Blogger
 Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protocol.html
 |#
 
-(define blogger-user<%>
-  (interface (has-atom<%>)
-    list-blogs ;; -> (listof blogger<%>)
-    find-blog  ;; string [default] -> blogger<%>
+(define blogger<%>
+  (interface (atom-feed-resource<%>)
+    list-blogs ;; -> (listof blogger-blog<%>)
+    find-blog  ;; string -> blogger-blog<%>
     ;; no create-blog
     ))
 
-(define blogger<%>
-  (interface (has-atom<%>)
+(define blogger-blog<%>
+  (interface (atom-feed-resource<%>)
     list-posts       ;; -> (listof blogger-post<%>)
     find-post        ;; string -> blogger-post<%>
     create-html-post ;; string (U path-string (listof string)) ... -> SXML
@@ -40,21 +40,21 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     ))
 
 (define blogger-post<%>
-  (interface (has-atom<%>)
+  (interface (atom-resource<%>)
     delete  ;; -> void
     ))
 
 ;; ============================================================
 
-(define blogger-scope "http://www.blogger.com/feeds/")
+(define blogger-scope "https://www.blogger.com/feeds/")
 
 ;; ============================================================
 
-(define (blogger-user #:oauth2 oauth2)
-  (new blogger-user% (oauth2 oauth2)))
+(define (blogger #:oauth2 oauth2)
+  (new blogger% (oauth2 oauth2)))
 
-(define blogger-user%
-  (class* has-atom/parent% (blogger-user<%>)
+(define blogger%
+  (class* atom-feed-resource% (blogger<%>)
     (init-field oauth2)
     (inherit list-children
              find-child-by-title)
@@ -63,27 +63,25 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     ;; ==== Overrides ====
 
     (define/override (internal-get-atom #:who who)
-      (get/url "http://www.blogger.com/feeds/default/blogs"
+      (get/url "https://www.blogger.com/feeds/default/blogs"
                #:headers (headers)
                #:handle read-sxml
                #:who who))
 
     (define/override (make-child atom)
-      (new blogger%
+      (new blogger-blog%
            (oauth2 oauth2)
            (parent this)
            (atom atom)))
 
     ;; ====
 
-    (define/public (find-blog blog-name
-                              #:reload [reload? #f]
-                              #:who [who 'blogger-user:find-blog])
-      (find-child-by-title blog-name #:reload? reload? #:who who))
+    (define/public (list-blogs #:who [who 'blogger:list-blogs])
+      (list-children #:who who))
 
-    (define/public (list-blogs #:reload? [reload? #f]
-                               #:who [who 'blogger-user:list-blogs])
-      (list-children #:reload? reload? #:who who))
+    (define/public (find-blog title
+                              #:who [who 'blogger:find-blog])
+      (find-child-by-title title #:who who))
 
     (define/public (headers [content-type #f])
       (append (case content-type
@@ -93,9 +91,9 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
               (send oauth2 headers)))
     ))
 
-;; blogger% represents one blog
-(define blogger%
-  (class* has-atom/parent+child% (blogger<%>)
+;; blogger-blog% represents one blog
+(define blogger-blog%
+  (class* atom-resource/parent+child% (blogger-blog<%>)
     (init-field oauth2)
     (inherit-field parent)
     (inherit get-atom
@@ -119,19 +117,19 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 
     ;; ----
 
-    (define/public (list-posts #:who [who 'blogger:list-posts])
+    (define/public (list-posts #:who [who 'blogger-blog:list-posts])
       (list-children #:who who))
 
-    (define/public (find-post post-title
-                              #:who [who 'blogger:find-post])
-      (find-child-by-title post-title #:who who))
+    (define/public (find-post title
+                              #:who [who 'blogger-blog:find-post])
+      (find-child-by-title title #:who who))
 
     ;; ----
 
     (define/public (create-html-post title html
                                      #:draft? [draft? #f]
                                      #:tags [tags null]
-                                     #:who [who 'blogger:create-html-post])
+                                     #:who [who 'blogger-blog:create-html-post])
       ;; html is either literal list of strings or name of HTML file
       (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
                 #:headers (headers 'atom)
@@ -168,7 +166,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     ))
 
 (define blogger-post%
-  (class* has-atom/parent+child% (blogger-post<%>)
+  (class* atom-resource/parent+child% (blogger-post<%>)
     (inherit-field parent)
     (inherit get-atom
              check-valid
@@ -183,6 +181,8 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                #:headers (send parent headers)
                #:handle read-sxml
                #:who who))
+
+    ;; ----
 
     (define/public (get-html-contents #:who [who 'blogger-post:get-html-contents])
       (check-valid who)
