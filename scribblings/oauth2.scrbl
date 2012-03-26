@@ -144,6 +144,16 @@ instance.
 (send google-auth-server get-token-url)
 ]
 }
+@defmethod[(get-tokeninfo-url) (or/c string? #f)]{
+  Returns the base URL for getting information about granted
+  tokens. Used by @method[oauth2<%> validate!]. This seems to be a
+  Google extension.
+}
+@defmethod[(get-revoke-url) (or/c string? #f)]{ 
+  Returns the base URL for revoking a token. Used by @method[oauth2<%>
+  revoke!]. This seems to be a Google extension.
+}
+
 @defmethod[(get-auth-request-url
              [#:client client (is-a?/c oauth2-client<%>)]
              [#:scopes scopes (listof string?)]
@@ -212,6 +222,10 @@ Obtain an instance via @racket[oauth2/request-auth-code/browser],
 @defmethod[(get-client-id) string?]{
   Returns the client ID string.
 }
+@defmethod[(get-scopes) (listof string?)]{
+  Returns the currently authorized scopes. If the scopes are unknown,
+  this method returns @racket['()]. See also @method[oauth2<%> validate!].
+}
 @defmethod[(get-access-token [#:re-acquire? re-acquire? #t])
            (or/c string? #f)]{
 
@@ -230,6 +244,17 @@ Obtain an instance via @racket[oauth2/request-auth-code/browser],
 
   Returns the refresh token, if one was provided by the authorization
   server, @racket[#f] otherwise.
+}
+@defmethod[(validate!) void?]{
+
+  Validates the current tokens with the auth server. If the auth
+  server does not support token validation, an exception is raised.
+
+  As a side effect of validation, the scope information returned by
+  @method[oauth2<%> get-scopes] is updated.
+}
+@defmethod[(revoke!) void?]{
+  Revokes the current refresh token.
 }
 @defmethod[(headers)
            (listof string?)]{
