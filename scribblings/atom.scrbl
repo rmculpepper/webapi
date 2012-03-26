@@ -138,21 +138,27 @@ instances.
 @defmethod[(list-children [#:reload reload? any/c #f])
            (listof (is-a?/c atom-resource<%>))]{
 
-  Returns a list of the entries of the feed-backed resource.
+  Returns a list of the resource's entries.
 }
 @defmethod[(find-children-by-title [title string?]
                                    [#:reload? reload? any/c #f])
            (listof (is-a?/c atom-resource<%>))]{
 
-  Returns a list of the entries of the feed-backed resource having the
+  Returns a list of the resource's entries having the
   title @racket[title]. (Titles are not required to be unique.)
 }
 @defmethod[(find-child-by-title [title string?]
                                 [#:reload? reload? any/c #f])
            (or/c (is-a?/c atom-resource<%>) #f)]{
 
-  Returns the first child (entry) of the feed-backed resource having
-  the title @racket[title]. If no such entry exists, @racket[#f] is
-  returned.
+  Returns the resource's first entry having the title
+  @racket[title]. If no such entry exists, @racket[#f] is returned.
+}
+@defmethod[(find-child-by-id [id string?]
+                             [#:reload? reload? any/c #f])
+           (or/c (is-a?/c atom-resource<%>) #f)]{
+
+  Returns the resource's entry having the identifier @racket[id]. If
+  no such entry exists, @racket[#f] is returned.
 }
 }
