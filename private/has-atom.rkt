@@ -36,6 +36,7 @@
     list-children
     find-children-by-title
     find-child-by-title
+    find-child-by-id
     ;; ----
     make-child
     intern
@@ -154,6 +155,13 @@
                                         #:reload? [reload? #f]
                                         #:who [who 'atom-feed-resource:find-child-by-title])
       (for/first ([child (in-list (find-children-by-title title #:reload? reload? #:who who))])
+        child))
+
+    (define/public (find-child-by-id id
+                                     #:reload? [reload? #f]
+                                     #:who [who 'atom-feed-resource:find-child-by-id])
+      (for/first ([child (in-list (list-children #:reload? reload? #:who who))]
+                  #:when (equal? id (send child get-id)))
         child))
 
     ))
