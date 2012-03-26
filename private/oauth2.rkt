@@ -40,6 +40,7 @@ TODO:
   (interface ()
     get-auth-url  ;; Authorization Endpoint
     get-token-url ;; Token Endpoint
+    get-tokeninfo-url ;; for validation
     get-auth-request-url
     ))
 
@@ -69,10 +70,14 @@ TODO:
 (define oauth2-auth-server%
   (class* object% (oauth2-auth-server<%>)
     (init-field auth-url
-                token-url)
+                token-url
+                [tokeninfo-url #f]
+                [revoke-url #f])
     (super-new)
     (define/public (get-auth-url) auth-url)
     (define/public (get-token-url) token-url)
+    (define/public (get-tokeninfo-url) tokeninfo-url)
+    (define/public (get-revoke-url) revoke-url)
 
     (define/public (get-auth-request-url #:client client
                                          #:scopes scopes
@@ -87,8 +92,14 @@ TODO:
                         (state . ,(or state ""))))))))
 
 (define (oauth2-auth-server #:auth-url auth-url
-                            #:token-url token-url)
-  (new oauth2-auth-server% (auth-url auth-url) (token-url token-url)))
+                            #:token-url token-url
+                            #:tokeninfo-url [tokeninfo-url #f]
+                            #:revoke-url [revoke-url #f])
+  (new oauth2-auth-server%
+       (auth-url auth-url)
+       (token-url token-url)
+       (tokeninfo-url tokeninfo-url)
+       (revoke-url revoke-url)))
 
 #|
 OAuth2 for Google
@@ -100,7 +111,9 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
 (define google-auth-server
   (oauth2-auth-server #:auth-url "https://accounts.google.com/o/oauth2/auth"
-                      #:token-url "https://accounts.google.com/o/oauth2/token"))
+                      #:token-url "https://accounts.google.com/o/oauth2/token"
+                      #:tokeninfo-url "https://www.googleapis.com/oauth2/v1/tokeninfo"
+                      #:revoke-url "https://accounts.google.com/o/oauth2/revoke"))
 
 ;; ============================================================
 
@@ -181,6 +194,31 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
       (let* ([now (current-inexact-milliseconds)]
              [json (refresh-token/json #:who who)])
         (reset-from-json! who now json)))
+
+    (define/public (validate! #:who [who 'oauth2:validate!])
+      (let* ([tokeninfo-url (or (send auth-server get-tokeninfo-url)
+                                (error who "no validatation url for auth server"))]
+             [json
+              (get/url (url-add-query tokeninfo-url
+                                      `((access_token . ,(get-access-token #:who who))))
+                       #:handle json->sjson
+                       #:who who)])
+        (unless (equal? (hash-ref json 'audience #f) (send client get-id))
+          (error who "invalid token: not issued to client"))
+        (let ([scope (hash-ref json 'scope "")])
+          (unless (equal? scope "")
+            (set! scopes (regexp-split #rx" +" scope))))
+        (void)))
+
+    (define/public (revoke! #:who [who 'oauth2:revoke!])
+      (let* ([revoke-url (or (send auth-server get-revoke-url)
+                             (error who "no revocation url for auth server"))]
+             [json
+              (get/url (url-add-query revoke-url `((token . ,refresh-token)))
+                       #:handle void
+                       #:who who)])
+        (set! access-token #f)
+        (set! refresh-token #f)))
 
     ;; ----
 
