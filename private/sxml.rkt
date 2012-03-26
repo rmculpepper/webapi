@@ -1,3 +1,7 @@
+;; Copyright 2011-2012 Ryan Culpepper
+;; Released under the terms of the LGPL version 3 or later.
+;; See the file COPYRIGHT for details.
+
 #lang racket/base
 (require (only-in mzlib/etc begin-lifted)
          (planet clements/sxml2:1))
