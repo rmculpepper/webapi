@@ -158,7 +158,8 @@ instance.
              [#:client client (is-a?/c oauth2-client<%>)]
              [#:scopes scopes (listof string?)]
              [#:redirect-uri redirect-uri string? "urn:ietf:wg:oauth:2.0:oob"]
-             [#:state state (or/c string? #f) #f])
+             [#:state state (or/c string? #f) #f]
+             [#:extra-parameters extra-parameters (listof (cons/c symbol? string?)) null])
            string?]{
 
   Returns a URL (as a string) that can be visited in a browser to

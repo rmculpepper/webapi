@@ -86,14 +86,16 @@ TODO:
     (define/public (get-auth-request-url #:client client
                                          #:scopes scopes
                                          #:redirect-uri [redirect-uri OOB-uri]
-                                         #:state [state #f])
+                                         #:state [state #f]
+                                         #:extra-parameters [extra-parameters null])
       (url->string
        (url-add-query (get-auth-url)
                       `((response_type . "code")
                         (client_id . ,(send client get-id))
                         (redirect_uri . ,redirect-uri)
                         (scope . ,(string-join scopes " "))
-                        (state . ,(or state ""))))))))
+                        (state . ,(or state ""))
+                        ,@extra-parameters))))))
 
 (define (oauth2-auth-server #:auth-url auth-url
                             #:token-url token-url
