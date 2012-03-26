@@ -1,6 +1,8 @@
 #lang racket/base
 (require racket/match
-         net/url)
+         openssl
+         net/url
+         net/url-connect)
 (provide get/url
          head/url
          delete/url
@@ -10,6 +12,23 @@
          url-add-query
          form-headers)
 
+;; Turn on verification on unix systems where ca-certificates.crt exists.
+(define verifying-ssl-context
+  (let ([ctx (ssl-make-client-context)])
+    (case (system-type 'os)
+      ((unix)
+       (let ([root-ca-file "/etc/ssl/certs/ca-certificates.crt"])
+         (when (file-exists? root-ca-file)
+           (ssl-set-verify! ctx #t)
+           (ssl-load-verify-root-certificates! ctx root-ca-file))))
+      ((macosx)
+       ;; FIXME: ???
+       (void))
+      ((windows)
+       ;; FIXME: ???
+       (void)))
+    ctx))
+
 #|
 TODO: add redirect option like get-pure-port
 |#
@@ -18,10 +37,17 @@ TODO: add redirect option like get-pure-port
                    handle fail headers data ok-rx)
   (let* ([url (if (string? url) (string->url url) url)]
          [data (if (string? data) (string->bytes/utf-8 data) data)])
+    (unless (equal? (url-scheme url) "https")
+      (error who "insecure location (expected `https' scheme): ~e" (url->string url)))
     (call/input-url url
-      (if data?
-          (lambda (url) (method url data headers))
-          (lambda (url) (method url headers)))
+      (lambda (url)
+        (parameterize ((current-https-protocol
+                        (if (ssl-client-context? (current-https-protocol))
+                            (current-https-protocol)
+                            verifying-ssl-context)))
+          (if data?
+              (method url data headers)
+              (method url headers))))
       (lambda (in)
         (let ([response-header (purify-port in)])
           (cond [(regexp-match? ok-rx response-header)
