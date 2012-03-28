@@ -18,7 +18,7 @@
 
 ;; Turn on verification on unix systems where ca-certificates.crt exists.
 (define verifying-ssl-context
-  (let ([ctx (ssl-make-client-context 'sslv3)])
+  (let ([ctx (ssl-make-client-context 'tls)])
     (case (system-type 'os)
       ((unix)
        (let ([root-ca-file "/etc/ssl/certs/ca-certificates.crt"])
