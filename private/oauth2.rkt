@@ -23,8 +23,8 @@
          google-auth-server)
 
 #|
-Based on working draft: http://tools.ietf.org/html/draft-ietf-oauth-v2-22
-Draft expires 3/25/2012.
+Based on working draft: http://tools.ietf.org/html/draft-ietf-oauth-v2-25
+Draft expires 9/9/2012.
 
 "Tested" with Google oauth2 service; may or may not work with others yet.
 

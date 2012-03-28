@@ -17,11 +17,11 @@ and as the standard solidifies.
 This library supports a subset of the OAuth 2.0 authorization
 protocol. The OAuth 2.0 specification is currently in draft state;
 this library is based on
-@hyperlink["http://tools.ietf.org/html/draft-ietf-oauth-v2-22"]{draft
-22} (released 22-Sep-2011, expires 25-Mar-2011). The implementation is
+@hyperlink["http://tools.ietf.org/html/draft-ietf-oauth-v2-25"]{draft
+25} (released 8-Mar-2012, expires 9-Sep-2012). The implementation is
 currently designed to work with the requirements of the
-@hyperlink["http://code.google.com/apis/accounts/docs/OAuth2.html"]{Google
-authorization server} (as of 17-Nov-2011); it may not work yet in other
+@hyperlink["https://developers.google.com/accounts/docs/OAuth2"]{Google
+authorization server} (as of 28-Mar-2012); it may not work yet in other
 contexts.
 
 @section{OAuth 2.0 Overview}
@@ -32,9 +32,9 @@ server}. This library may be used by clients to talk to resource
 servers and authorization servers; it provides no support for
 implementors of resource servers or authorization servers.
 
-An OAuth 2.0 interaction is represented by an object implementing the
+An OAuth 2.0 authorization is represented by an object implementing the
 @racket[oauth2<%>] interface. It consists of a client, an
-authorization server, the access ``scopes'' granted, and any tokens
+authorization server, the access ``scopes'' granted, and the tokens
 issued by the authorization server. Clients are represented by objects
 implementing @racket[oauth2-client<%>], and authorization servers are
 represented by objects implementing
@@ -60,14 +60,16 @@ object. Currently only bearer tokens are supported; see
 The following subsections outline the support for various usage
 scenarios.
 
-@subsection{OAuth 2.0 for Native Applications}
+@subsection{OAuth 2.0 for Installed Applications}
 
 This scenario applies to clients that are Racket programs running on
-the resource owner's machine. Since the client is under the control of
-the resource owner, its credentials, including the ``client secret,''
-should @emph{not} be considered secret.
+the resource owner's machine. (The OAuth 2.0 draft calls these
+``native applications,'' but ``installed application'' seems a better
+description.) Since the client is under the control of the resource
+owner, its credentials, including the ``client secret,'' should
+@emph{not} be considered secret.
 
-A native application can obtain an @racket[oauth2<%>] object in the
+An installed application can obtain an @racket[oauth2<%>] object in the
 following ways:
 @itemlist[
 @item{Use @racket[oauth2/request-auth-code/browser] to open a web browser with
@@ -101,7 +103,7 @@ clients running in a web browser (``user agent'').
 
 This scenario applies to clients that are web applications running on
 a server not under the resource owner's control. In contrast to the
-``native application'' scenario, the client may keep secrets, such as
+installed application scenario, the client may keep secrets, such as
 its credentials, from the resource owner.
 
 A web application can obtain an @racket[oauth2<%>] object in the
