@@ -55,7 +55,7 @@ methods return @racket[picasa-album<%>] objects.
 }
 }
 
-@definterface[picasa-album<%> (atom-resource<%>)]{
+@definterface[picasa-album<%> (atom-feed-resource<%>)]{
 
 Represents a Picasa Web Album. 
 
