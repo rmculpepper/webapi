@@ -23,10 +23,11 @@
 ;; ----
 
 (define the-eval (make-base-eval))
+
 (void
- (interaction-eval #:eval the-eval
-                   (require racket/class
-                            "oauth2.rkt")))
+ (the-eval
+  `(require racket/class
+            (planet ,(this-package-version-symbol oauth2)))))
 
 (define-syntax-rule (examples/results [example result] ...)
   (examples #:eval the-eval (eval:alts example result) ...))

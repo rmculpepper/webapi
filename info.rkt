@@ -17,4 +17,4 @@
 (define repositories '("4.x"))
 
 (define release-notes
-  '("Initial release."))
+  '("Fixed problem compiling docs."))
