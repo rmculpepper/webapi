@@ -17,21 +17,7 @@
          form-headers)
 
 ;; Turn on verification on unix systems where ca-certificates.crt exists.
-(define verifying-ssl-context
-  (let ([ctx (ssl-make-client-context 'tls)])
-    (case (system-type 'os)
-      ((unix)
-       (let ([root-ca-file "/etc/ssl/certs/ca-certificates.crt"])
-         (when (file-exists? root-ca-file)
-           (ssl-set-verify! ctx #t)
-           (ssl-load-verify-root-certificates! ctx root-ca-file))))
-      ((macosx)
-       ;; FIXME: ???
-       (void))
-      ((windows)
-       ;; FIXME: ???
-       (void)))
-    ctx))
+(define verifying-ssl-context (ssl-secure-client-context))
 
 #|
 TODO: add redirect option like get-pure-port
