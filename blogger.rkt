@@ -39,13 +39,15 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
   (interface (atom-feed-resource<%>)
     list-posts       ;; -> (listof blogger-post<%>)
     find-post        ;; string -> blogger-post<%>
-    create-html-post ;; string (U path-string (listof string)) ... -> SXML
+    create-html-post ;; string (U path-string (listof SXML)) ... -> blogger-post<%>
     ;; no delete-blog
     ))
 
 (define blogger-post<%>
   (interface (atom-resource<%>)
-    delete  ;; -> void
+    get-html-contents ;; -> SXML
+    update            ;; string/#f (U #f path-string (listof SXML)) -> void
+    delete            ;; -> void
     ))
 
 ;; ============================================================
@@ -90,6 +92,7 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
     (define/public (headers [content-type #f])
       (append (case content-type
                 ((atom) '("Content-Type: application/atom+xml"))
+                ((xml)  '("Content-Type: application/xml"))
                 (else null))
               '("GData-Version: 2")
               (send oauth2 headers)))
@@ -130,37 +133,18 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
 
     ;; ----
 
-    (define/public (create-html-post title html
+    (define/public (create-html-post title contents
                                      #:draft? [draft? #f]
                                      #:tags [tags null]
                                      #:who [who 'blogger-blog:create-html-post])
       ;; html is either literal list of strings or name of HTML file
-      (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
-                #:headers (headers 'atom)
-                #:data (let* ([html-body
-                               (cond [(input-port? html) (port->lines html)]
-                                     [else (map xexp->html html)])]
-                              [body (create-html-post/doc title html-body draft? tags)])
-                         (srl:sxml->xml body))
-                #:handle (lambda (in) (intern (atom (read-sxml in))))
-                #:who who))
-
-    (define/private (create-html-post/doc title html-body draft? tags)
-      ;; Include the contents of html-file in doc as a *string*;
-      ;; that way its markup gets escaped when atom xml is written.
-      `(*TOP*
-        (@ (*NAMESPACES*
-            (atom "http://www.w3.org/2005/Atom")
-            (app  "http://www.w3.org/2007/app")))
-        (*PI* xml "version='1.0' encoding='UTF-8'")
-        (atom:entry
-         (atom:title (@ (type "text")) ,title)
-         (atom:content (@ (type "html")) ,@html-body)
-         ,@(for/list ([tag (in-list tags)])
-             `(atom:category (@ (scheme "http://www.blogger.com/atom/ns#")
-                                (term ,tag))))
-         ,@(cond [draft? '((app:control (app:draft "yes")))]
-                 [else '()]))))
+      (let ([html (port/sxmls->html contents)])
+        (post/url (send (get-atom) get-link "http://schemas.google.com/g/2005#post")
+                  #:headers (headers 'atom)
+                  #:data (let ([body (create-html-post/doc #f title html draft? tags)])
+                           (srl:sxml->xml body))
+                  #:handle (lambda (in) (intern (atom (read-sxml in))))
+                  #:who who)))
 
     ;; ----
 
@@ -204,4 +188,67 @@ Reference: http://code.google.com/apis/blogger/docs/2.0/developers_guide_protoco
                   #:who who)
       (invalidate!))
 
+    (define/public (update title contents
+                           #:who [who 'blogger-post:update-html-contents])
+      (check-valid who)
+      (put/url (send (get-atom) get-link "edit")
+               #:headers (list* (send parent headers 'atom))
+               #:data (let* ([html (port/sxmls->html contents)]
+                             [body (update-html-post/doc
+                                    (send (get-atom #:reload? #t) get-raw-sxml)
+                                    title
+                                    html)])
+                        (srl:sxml->xml body))
+               #:handle port->string
+               #:who who)
+      (invalidate!))
+
     ))
+
+(define (update-html-post/doc sxml new-title new-html)
+  (pre-post-order sxml
+                  (list (cons 'atom:content
+                              (lambda current-content-elem
+                                (if new-html
+                                    `(atom:content (@ (type "html")) ,@new-html)
+                                    current-content-elem)))
+                        (cons 'atom:title
+                              (lambda current-tag-elem
+                                (if new-title
+                                    `(atom:title ,new-title)
+                                    current-tag-elem)))
+                        (cons '*text*
+                              (lambda (tag content)
+                                content))
+                        (cons '*default*
+                              (lambda args args)))))
+
+;; create-html-post/doc : string string (listof string boolean (U #f (listof string)) -> SXML
+(define (create-html-post/doc id title html-body draft? tags)
+  ;; Include the contents of html-file in doc as a *string*;
+  ;; that way its markup gets escaped when atom xml is written.
+  `(*TOP*
+    (@ (*NAMESPACES*
+        (atom "http://www.w3.org/2005/Atom")
+        (app  "http://www.w3.org/2007/app")))
+    (*PI* xml "version='1.0' encoding='UTF-8'")
+    (atom:entry
+     ,@(if id
+           `((atom:id ,id))
+           '())
+     ,@(if title
+           `((atom:title (@ (type "text")) ,title))
+           '())
+     (atom:content (@ (type "html")) ,@html-body)
+     ,@(if tags
+           (for/list ([tag (in-list tags)])
+             `(atom:category (@ (scheme "http://www.blogger.com/atom/ns#")
+                                (term ,tag))))
+           '())
+     ,@(cond [draft? '((app:control (app:draft "yes")))]
+             [else '()]))))
+
+;; port/sxmls->html : (U input-port (listof SXML)) -> string
+(define (port/sxmls->html x)
+  (cond [(input-port? x) (port->lines x)]
+        [else (map xexp->html x)]))
