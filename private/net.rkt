@@ -1,4 +1,4 @@
-;; Copyright 2011-2012 Ryan Culpepper
+;; Copyright 2011-2013 Ryan Culpepper
 ;; Released under the terms of the LGPL version 3 or later.
 ;; See the file COPYRIGHT for details.
 
@@ -12,7 +12,6 @@
          delete/url
          post/url
          put/url
-
          url-add-query
          form-headers)
 
@@ -24,7 +23,7 @@ TODO: add redirect option like get-pure-port
 |#
 
 (define (do-method who url method data?
-                   handle fail headers data ok-rx)
+                   handle fail headers data)
   (let* ([url (if (string? url) (string->url url) url)]
          [data (if (string? data) (string->bytes/utf-8 data) data)])
     (unless (equal? (url-scheme url) "https")
@@ -48,43 +47,38 @@ TODO: add redirect option like get-pure-port
                             (read-line (open-input-string response-header) 'any))
                      (fail response-header in))]))))))
 
-(define (get-code header)
-  (cadr (regexp-match #rx"^HTTP/1\\.. ([0-9]*)" header)))
-
-(define std-ok-rx #rx"^HTTP/1\\.. 20.")
+(define ok-rx #rx"^HTTP/1\\.. 20.")
 
 ;; TODO: add separate rx & handler for auth failures
 ;; so that clients can call refresh-token
 
 ;; ----
 
-(define (mk-no-data-method method)
+(define (mk-no-data-method who0 method)
   (lambda (url
            #:headers [headers null]
            #:handle [handle void]
-           #:who [who 'get-url]
-           #:fail [fail "failed"]
-           #:ok-rx [ok-rx std-ok-rx])
+           #:who [who who0]
+           #:fail [fail "failed"])
     (do-method who url method #f
-               handle fail headers #f ok-rx)))
+               handle fail headers #f)))
 
-(define get/url (mk-no-data-method get-impure-port))
-(define head/url (mk-no-data-method head-impure-port))
-(define delete/url (mk-no-data-method delete-impure-port))
+(define get/url (mk-no-data-method 'get/url get-impure-port))
+(define head/url (mk-no-data-method 'head/url head-impure-port))
+(define delete/url (mk-no-data-method 'delete/url delete-impure-port))
 
-(define (mk-data-method method)
+(define (mk-data-method who0 method)
   (lambda (url
            #:headers [headers null]
            #:data [data #f]
            #:handle [handle void]
-           #:who [who 'get-url]
-           #:fail [fail "failed"]
-           #:ok-rx [ok-rx std-ok-rx])
+           #:who [who who0]
+           #:fail [fail "failed"])
     (do-method who url method #t
-               handle fail headers data ok-rx)))
+               handle fail headers data)))
 
-(define post/url (mk-data-method post-impure-port))
-(define put/url (mk-data-method put-impure-port))
+(define post/url (mk-data-method 'post/url post-impure-port))
+(define put/url (mk-data-method 'put/url put-impure-port))
 
 ;; ----
 
@@ -96,4 +90,4 @@ TODO: add redirect option like get-pure-port
        (url scheme user host port path-abs? path query fragment))]))
 
 (define (form-headers)
-  (list "Content-Type: application/x-www-form-urlencoded"))
+  '("Content-Type: application/x-www-form-urlencoded"))
