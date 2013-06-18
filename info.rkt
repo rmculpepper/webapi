@@ -13,7 +13,7 @@
 (define categories '(io net xml))
 (define can-be-loaded-with 'all)
 (define primary-file "main.rkt")
-(define required-core-version "5.2")
+(define required-core-version "5.3.4")
 (define repositories '("4.x"))
 
 (define release-notes
