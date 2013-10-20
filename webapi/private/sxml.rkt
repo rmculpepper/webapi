@@ -4,7 +4,7 @@
 
 #lang racket/base
 (require (only-in mzlib/etc begin-lifted)
-         (planet clements/sxml2:1))
+         sxml)
 (provide read-sxml
          namespace-names
          xpath-nss

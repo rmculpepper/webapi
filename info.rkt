@@ -5,5 +5,9 @@
 #lang info
 
 (define collection 'multi)
-(define deps '("base"))
+(define deps '("base"
+               "sxml"
+               "planet-neil-html-writing1"
+               "compatibility-lib"
+               "web-server-lib"))
 (define build-deps '("racket-doc" "scribble-lib"))

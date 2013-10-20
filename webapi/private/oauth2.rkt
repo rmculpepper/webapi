@@ -1,4 +1,4 @@
-;; Copyright 2011-2012 Ryan Culpepper
+;; Copyright 2011-2013 Ryan Culpepper
 ;; Released under the terms of the LGPL version 3 or later.
 ;; See the file COPYRIGHT for details.
 
@@ -8,7 +8,7 @@
          net/url
          net/uri-codec
          "net.rkt"
-         (planet neil/json-parsing:1))
+         json)
 (provide oauth2-auth-server<%>
          oauth2-auth-server
 
@@ -207,7 +207,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
              [json
               (get/url (url-add-query tokeninfo-url
                                       `((access_token . ,(get-access-token #:who who))))
-                       #:handle json->sjson
+                       #:handle read-json
                        #:who who)])
         (unless (equal? (hash-ref json 'audience #f) (send client get-id))
           (error who "invalid token: not issued to client"))
@@ -235,7 +235,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
                 #:headers (form-headers)
                 #:data (body/acquire-token #:auth-code auth-code
                                            #:redirect-uri redirect-uri)
-                #:handle json->sjson
+                #:handle read-json
                 ;; FIXME: add #:fail arg that reads json error response
                 #:who who))
 
@@ -252,7 +252,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
       (post/url (send auth-server get-token-url)
                 #:headers (form-headers)
                 #:data (body/refresh-token)
-                #:handle json->sjson
+                #:handle read-json
                 ;; FIXME: add #:fail arg that reads json error response
                 #:who who))
 

@@ -1,4 +1,4 @@
-;; Copyright 2011-2012 Ryan Culpepper
+;; Copyright 2011-2013 Ryan Culpepper
 ;; Released under the terms of the LGPL version 3 or later.
 ;; See the file COPYRIGHT for details.
 
@@ -12,7 +12,7 @@
          "private/net.rkt"
          "private/has-atom.rkt"
          "private/sxml.rkt"
-         (planet clements/sxml2:1))
+         sxml)
 (provide picasa-scope
          picasa<%>
          picasa-album<%>
