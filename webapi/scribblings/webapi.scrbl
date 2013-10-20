@@ -4,7 +4,7 @@
           scribble/eval
           "config.rkt")
 
-@title[#:version (my-package-version)]{webapi: Web APIs}
+@title{webapi: Web APIs}
 @author[@author+email["Ryan Culpepper" "ryanc@racket-lang.org"]]
 
 This package provides rudimentary implementations of a few web APIs.

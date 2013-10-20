@@ -2,9 +2,8 @@
 @(require scribble/manual
           scribble/eval
           scribble/struct
-          racket/sandbox
           "config.rkt"
-          (for-label (this-package-in atom atom-resource)))
+          (for-label webapi/atom webapi/atom-resource))
 
 @title[#:tag "atom"]{Atom Documents and Resources}
 
@@ -15,7 +14,7 @@ documents and resources represented with Atom documents.
 
 @section{Atom Documents}
 
-@defmodule/this-package[atom]
+@defmodule[webapi/atom]
 
 An Atom document is represented by an @racket[atom<%>]
 object. Specifically, an @racket[atom<%>] object is a thin, immutable
@@ -88,7 +87,7 @@ Represents an Atom document. Obtain an instance via @racket[atom].
 
 @section{Atom Resources}
 
-@defmodule/this-package[atom-resource]
+@defmodule[webapi/atom-resource]
 
 An @racket[atom-resource<%>] object represents a resource (such as a
 blog or photo album) that is represented and manipulated via Atom

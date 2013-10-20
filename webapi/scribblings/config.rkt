@@ -1,24 +1,17 @@
-;; Copyright 2011 Ryan Culpepper
+;; Copyright 2011-2013 Ryan Culpepper
 ;; Released under the terms of the LGPL version 3 or later.
 ;; See the file COPYRIGHT for details.
 
 #lang racket/base
 (require scribble/manual
          scribble/eval
-         racket/sandbox
-         planet/version
-         planet/scribble
          (for-label racket/base
                     racket/class
                     racket/contract))
 (provide (all-defined-out)
-         (all-from-out planet/scribble)
          (for-label (all-from-out racket/base)
                     (all-from-out racket/class)
                     (all-from-out racket/contract)))
-
-(define (my-package-version)
-  (format "~a.~a" (this-package-version-maj) (this-package-version-min)))
 
 ;; ----
 
@@ -27,7 +20,7 @@
 (void
  (the-eval
   `(require racket/class
-            (planet ,(this-package-version-symbol oauth2)))))
+            webapi/oauth2)))
 
 (define-syntax-rule (examples/results [example result] ...)
   (examples #:eval the-eval (eval:alts example result) ...))

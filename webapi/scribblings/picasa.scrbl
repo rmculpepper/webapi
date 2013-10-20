@@ -2,13 +2,14 @@
 @(require scribble/manual
           scribble/eval
           scribble/struct
-          racket/sandbox
           "config.rkt"
-          (for-label (this-package-in atom-resource oauth2 picasa)))
+          (for-label webapi/atom-resource
+                     webapi/oauth2
+                     webapi/picasa))
 
 @title[#:tag "picasa"]{Picasa Web Albums}
 
-@(defmodule/this-package picasa)
+@defmodule[webapi/picasa]
 
 This library supports a small subset of the
 @hyperlink["http://code.google.com/apis/picasaweb/overview.html"]{Picasa

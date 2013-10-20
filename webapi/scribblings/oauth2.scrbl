@@ -2,13 +2,12 @@
 @(require scribble/manual
           scribble/eval
           scribble/struct
-          racket/sandbox
           "config.rkt"
-          (for-label (this-package-in oauth2)))
+          (for-label webapi/oauth2))
 
 @title[#:tag "oauth2"]{OAuth 2.0 Client}
 
-@(defmodule/this-package oauth2)
+@defmodule[webapi/oauth2]
 
 This library is an incomplete implementation of an unfinished
 standard; use with care. It is certain to evolve as features are added

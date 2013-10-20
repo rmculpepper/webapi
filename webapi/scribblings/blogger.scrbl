@@ -2,13 +2,14 @@
 @(require scribble/manual
           scribble/eval
           scribble/struct
-          racket/sandbox
           "config.rkt"
-          (for-label (this-package-in atom-resource oauth2 blogger)))
+          (for-label webapi/atom-resource
+                     webapi/oauth2
+                     webapi/blogger))
 
 @title[#:tag "blogger"]{Blogger}
 
-@defmodule/this-package[blogger]
+@defmodule[webapi/blogger]
 
 This library supports a small subset of the
 @hyperlink["http://code.google.com/apis/blogger/"]{Blogger
