@@ -13,7 +13,7 @@
          "private/has-atom.rkt"
          "private/sxml.rkt"
          sxml
-         neil/html-writing1/main)
+         html-writing)
 (provide blogger-scope
          blogger<%>
          blogger%

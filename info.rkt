@@ -7,7 +7,7 @@
 (define collection 'multi)
 (define deps '("base"
                "sxml"
-               "planet-neil-html-writing1"
+               "html-writing"
                "compatibility-lib"
                "web-server-lib"))
 (define build-deps '("racket-doc" "scribble-lib"))
