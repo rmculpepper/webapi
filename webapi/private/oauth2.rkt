@@ -7,6 +7,7 @@
          racket/string
          net/url
          net/uri-codec
+         net/base64
          "net.rkt"
          json)
 (provide oauth2-auth-server<%>
@@ -32,7 +33,7 @@ The draft recommends using Basic Authentication for client
 credentials, but we only support sending client_secret in query.
 
 TODO:
- - what about when have refresh-token but no client-secret ?
+- what about when have refresh-token but no client-secret ?
 |#
 
 ;; ============================================================
@@ -111,8 +112,8 @@ TODO:
 OAuth2 for Google
 Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
- - When your access token expires, our API endpoints will respond
-   with HTTP 401 Unauthorized.
+- When your access token expires, our API endpoints will respond
+with HTTP 401 Unauthorized.
 |#
 
 (define google-auth-server
@@ -148,18 +149,18 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
     #|
     Several modes:
-     - start with access token, no re-acquire on expiration
-     - acquire both access and refresh tokens from auth-key
-       when access token expires, re-acquire using refresh token
-     - start with previously-acquired refresh token
-       get access token when needed using refresh token
-     - acquire only access token using auth-key,
-       no re-acquire on expiration
-     - acquire only access token via response-owner-authorization
-       ("implicit grant"), re-acquire same way
+    - start with access token, no re-acquire on expiration
+    - acquire both access and refresh tokens from auth-key
+    when access token expires, re-acquire using refresh token
+    - start with previously-acquired refresh token
+    get access token when needed using refresh token
+    - acquire only access token using auth-key,
+    no re-acquire on expiration
+    - acquire only access token via response-owner-authorization
+    ("implicit grant"), re-acquire same way
 
     This code makes the following assumptions:
-     - if we have a refresh token, we use it
+    - if we have a refresh token, we use it
     |#
 
     ;; ----
@@ -228,11 +229,20 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
     ;; ----
 
+    (define (client-headers)
+      (list
+       (format
+        "Authorization: Basic ~a"
+        (base64-encode
+         (string->bytes/utf-8
+          (format "~a:~a" (send client get-id) (send client get-secret)))
+         #""))))
+
     (define/public (acquire-token/auth-code/json #:auth-code auth-code
                                                  #:redirect-uri redirect-uri
                                                  #:who [who 'oauth2:acquire-token/auth-code/json])
       (post/url (send auth-server get-token-url)
-                #:headers (form-headers)
+                #:headers (append (client-headers) (form-headers))
                 #:data (body/acquire-token #:auth-code auth-code
                                            #:redirect-uri redirect-uri)
                 #:handle read-json
@@ -250,7 +260,7 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
 
     (define/public (refresh-token/json #:who [who 'oauth2:refresh-token/json])
       (post/url (send auth-server get-token-url)
-                #:headers (form-headers)
+                #:headers (append (client-headers) (form-headers))
                 #:data (body/refresh-token)
                 #:handle read-json
                 ;; FIXME: add #:fail arg that reads json error response
@@ -266,11 +276,11 @@ Reference: http://code.google.com/apis/accounts/docs/OAuth2.html
     #|
     On success, requests return JSON
     doc as hasheq containing the following fields:
-      - access_token : the token
-      - token_type : eg, "Bearer"
-      - expires_in (optional) : number of seconds
-      - refresh_token (optional)
-      - scope : space-separated, only if scope granted narrower than requested
+    - access_token : the token
+    - token_type : eg, "Bearer"
+    - expires_in (optional) : number of seconds
+    - refresh_token (optional)
+    - scope : space-separated, only if scope granted narrower than requested
     |#
 
     (define/public (reset-from-json! who now json)
