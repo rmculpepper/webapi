@@ -293,7 +293,9 @@ Obtain an instance via @racket[oauth2/request-auth-code/browser],
 @defproc[(oauth2/request-auth-code/browser
              [auth-server (is-a?/c oauth2-auth-server<%>)]
              [client (is-a?/c oauth2-client<%>)]
-             [scopes (listof string?)])
+             [scopes (listof string?)]
+             [#:port port number? 8000]
+             [#:host host string? "localhost"])
          (is-a?/c oauth2<%>)]{
 
   Automates the combination of @method[oauth2-auth-server<%>
@@ -302,6 +304,14 @@ Obtain an instance via @racket[oauth2/request-auth-code/browser],
   @tt{localhost:8000} and supplying a redirection URL of
   @racket["http://localhost:8000/oauth2/response"] in the
   authorization code request to @racket[auth-server].
+  
+  You can customize the redirection URL using the optional
+  keyword arguments @racket[#:port] and @racket[#:host]. Changing 
+  the @racket[port] number will cause the ad hoc web server to 
+  operate on a different port. Changing the @racket[host] to 
+  anything other than @racket["127.0.0.1"] is likely nonsensical, 
+  but such changes may be necessary to make this procedure work 
+  with certain services.
 }
 
 @section[#:tag "oauth2-security"]{OAuth 2.0 Security Notes}
