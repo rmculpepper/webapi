@@ -21,7 +21,7 @@ TO DO:
 |#
 
 (define (generate-redirect-uri host port)
-  (string-append "http://" host ":" (number->string port) "/oauth2/response"))
+  (string-append "http://" host ":" (number->string port) "/oauth2/response")))
 
 (define (oauth2/request-auth-code/browser auth-server client scopes 
          #:host [host "localhost"]
