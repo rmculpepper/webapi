@@ -21,7 +21,7 @@ TO DO:
 |#
 
 (define (generate-redirect-uri host port)
-  (string-append "http://" host ":" (number->string port) "/oauth2/response")))
+  (string-append "http://" host ":" (number->string port) "/oauth2/response"))
 
 (define (oauth2/request-auth-code/browser auth-server client scopes 
          #:host [host "localhost"]
@@ -68,7 +68,7 @@ TO DO:
                 (send auth-server get-auth-request-url
                       #:client client
                       #:scopes scopes
-                      #:redirect-uri (generate-redirect-uri host port)))]
+                      #:redirect-uri (generate-redirect-uri host port))))]
             [(equal? path "oauth2/response")
              (let ([bindings (request-bindings/raw req)])
                (cond [(bindings-assq #"code" bindings)
